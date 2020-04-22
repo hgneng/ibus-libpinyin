@@ -18,6 +18,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+AM_CFLAGS = -I/usr/include/speech-dispatcher -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I utfcpp/source
+AM_LDADD = -lspeechd -lglib-2.0
 
 libexec_PROGRAMS = ibus-engine-libpinyin
 ibus_engine_libpinyin_built_c_sources = \
@@ -95,6 +97,8 @@ ibus_engine_libpinyin_c_sources += \
 	PYPSuggestionEditor.cc \
 	PYPSuggestionCandidates.cc \
 	PYPEmojiCandidates.cc \
+	chinesedict.c \
+	ibusspeech.cc \
 	$(NULL)
 
 
@@ -131,6 +135,7 @@ ibus_engine_libpinyin_CXXFLAGS = \
 	-DLOCALEDIR=\"$(localedir)\" \
 	-DPKGDATADIR=\"$(pkgdatadir)\" \
 	-DLIBEXECDIR=\"$(libexecdir)\" \
+	$(AM_CFLAGS) \
 	$(NULL)
 
 if HAVE_BOOST
@@ -148,6 +153,7 @@ ibus_engine_libpinyin_LDADD = \
 	@SQLITE_LIBS@ \
 	@LIBPINYIN_LIBS@ \
 	@OPENCC_LIBS@ \
+	$(AM_LDADD) \
 	$(NULL)
 
 ibus_engine_libpinyin_CXXFLAGS += \

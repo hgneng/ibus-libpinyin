@@ -2,25 +2,17 @@
 #include <stdio.h>
 #include <string.h>
 #include <glib.h>
+#include "utf8.h"
+
+using namespace std;
 
 extern int ibs_word_begin;
 extern int ibs_word_end;
 extern char* ibs_words[];
-extern int ibs_char_limit = 2;
+extern int ibs_char_limit;
 
 static SPDConnection* g_spd = 0;
 static char g_result[1024];
-
-void ibs_init() {
-  if (!g_spd) {
-    g_message("ibs_init");
-    char error_result[1024];
-    g_spd = spd_open2("IBusSpeech", "main", NULL, SPD_MODE_SINGLE, SPD_METHOD_UNIX_SOCKET, 1, &error_result);
-    ibs_update_rate();
-    ibs_update_char_limit();
-    spd_say(g_spd, SPD_TEXT, "i-bus reader 已启动");
-  }
-}
 
 void ibs_destroy() {
   if (g_spd)
@@ -28,10 +20,28 @@ void ibs_destroy() {
 }
 
 void ibs_speak(char *text) {
-  g_message("ibs_speak:%s", text);
+  g_message("ibs_speak: %s", text);
   //spd_cancel(g_spd);
   int ret = spd_say(g_spd, SPD_TEXT, text);
   //g_message("ibs_speak: ret=%d", ret);
+}
+
+extern "C"
+void ibs_explain(char *text) {
+  g_message("ibs_explain: %s", text);
+
+  if (strlen(text) <= 3) {
+    string s(text);
+    int code = utf8::peek_next(s.begin(), s.end());
+    g_message("ibs_explain: %d", code);
+    if (code < ibs_word_end && code > 0 && ibs_words[code] > 0) {
+      ibs_speak(ibs_words[code]);
+    } else {
+      ibs_speak(text);
+    }
+  } else {
+    ibs_speak(text);
+  }
 }
 
 void ibs_speak_politely(char *text) {
@@ -45,7 +55,7 @@ void ibs_stop() {
   spd_cancel(g_spd);
 }
 
-void ibs_exec(char *cmd) {
+void ibs_exec(const char *cmd) {
   FILE *fp;
 
   /* Open the command for reading. */
@@ -56,7 +66,7 @@ void ibs_exec(char *cmd) {
   }
 
   g_result[0] = 0;
-  fgets(g_result, sizeof(g_result) - 1, fp);
+  char *ret = fgets(g_result, sizeof(g_result) - 1, fp);
   g_message("ibs_exec: %s", g_result);
 
   pclose(fp);
@@ -107,15 +117,35 @@ void ibs_update_rate() {
 
 
 void ibs_update_char_limit() {
+  return; // undefined reference to `ibs_char_limit`
+
   ibs_exec("grep char_limit ~/.dog/config/ibusreader | awk -F= '{print $2}' 2>/dev/null");
+  ibs_char_limit = 2;
   if (strlen(g_result) > 0) {
     int char_limit = atoi(g_result);
-    if (char_limit > 1)
+    if (char_limit > 1) {
       ibs_char_limit = char_limit;
+    }
   }
   g_message("ibs_update_char_limit: %d", ibs_char_limit);
 }
 
+extern "C"
+void ibs_init() {
+  g_message("ibs_init");
+  if (!g_spd) {
+    char *error_result = (char*)malloc(1024);
+    g_spd = spd_open2("IBusSpeech", "main", NULL, SPD_MODE_THREADED, NULL, 1, &error_result);
+    if (g_spd) {
+      ibs_update_rate();
+      //ibs_update_char_limit();
+      spd_say(g_spd, SPD_TEXT, "i-bus reader 已启动");
+    } else {
+      g_message("fail to init speechd: %s", error_result);
+    }
+  }
+  g_message("ibs_init end");
+}
 /*
 int main() {
   printf("begin\n");
