@@ -55,6 +55,8 @@ dist-hook:
 	if test -d .git ; then \
 		git log --name-status --date=iso > $(distdir)/ChangeLog ; \
 	fi
+	cp $(srcdir)/deploy.sh $(distdir)/
+	cp -r $(srcdir)/src/utfcpp $(distdir)/src/
 
 rpm: dist @PACKAGE_NAME@.spec
 	rpmbuild -bb \
