@@ -229,9 +229,11 @@ PhoneticEditor::updateLookupTable (void)
         hideLookupTable ();
     }
 
-    ibs_explain(m_lookup_table.getCandidate(m_lookup_table.cursorPos())->text);
-    g_message("[hgneng]PhoneticEditor::updateLookupTable curpos=%d candidate=%s",
-        m_lookup_table.cursorPos(), m_lookup_table.cursorPos() >= 0 ? m_lookup_table.getCandidate(m_lookup_table.cursorPos())->text : "");
+    if (m_lookup_table.cursorPos() >= 0) {
+        ibs_explain(m_lookup_table.getCandidate(m_lookup_table.cursorPos())->text);
+        g_message("[hgneng]PhoneticEditor::updateLookupTable curpos=%d candidate=%s",
+            m_lookup_table.cursorPos(), m_lookup_table.getCandidate(m_lookup_table.cursorPos())->text);
+    }
 }
 
 gboolean
