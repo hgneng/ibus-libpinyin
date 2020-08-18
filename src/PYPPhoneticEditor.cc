@@ -225,14 +225,14 @@ PhoneticEditor::updateLookupTable (void)
     fillLookupTable ();
     if (m_lookup_table.size()) {
         Editor::updateLookupTable (m_lookup_table, TRUE);
+
+        if (m_lookup_table.cursorPos() >= 0) {
+            ibs_explain(m_lookup_table.getCandidate(m_lookup_table.cursorPos())->text);
+            g_message("[hgneng]PhoneticEditor::updateLookupTable curpos=%d candidate=%s",
+                m_lookup_table.cursorPos(), m_lookup_table.getCandidate(m_lookup_table.cursorPos())->text);
+        }
     } else {
         hideLookupTable ();
-    }
-
-    if (m_lookup_table.cursorPos() >= 0) {
-        ibs_explain(m_lookup_table.getCandidate(m_lookup_table.cursorPos())->text);
-        g_message("[hgneng]PhoneticEditor::updateLookupTable curpos=%d candidate=%s",
-            m_lookup_table.cursorPos(), m_lookup_table.getCandidate(m_lookup_table.cursorPos())->text);
     }
 }
 

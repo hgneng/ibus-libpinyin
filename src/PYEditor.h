@@ -150,6 +150,7 @@ protected:
 
     void hideLookupTable (void) const
     {
+        g_message("[hgneng]PYEditor::hideLookupTable");
         m_signal_hide_lookup_table ();
     }
 
