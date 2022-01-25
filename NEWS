@@ -1,3 +1,20 @@
+version 1.12.1
+* support compatibility display style
+* remember cloud input
+* bug fixes
+
+version 1.12.0
+* bug fixes
+
+version 1.11.94
+* support cloud input
+* bug fixes
+
+version 1.11.93
+* switch to use GPLv3+ license
+* support network dictionary
+* bug fixes
+
 version 1.11.92
 * fixes desktop files
 

@@ -4,25 +4,25 @@
  *
  * Copyright (c) 2011 Peng Wu <alexepico@gmail.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef __PY_LIB_PINYIN_H_
 #define __PY_LIB_PINYIN_H_
 
 #include <memory>
+#include <time.h>
 #include <glib.h>
 
 typedef struct _pinyin_context_t pinyin_context_t;
@@ -55,6 +55,7 @@ public:
     gboolean clearPinyinUserData (const char *target);
 
     gboolean rememberUserInput (pinyin_instance_t *instance, const gchar *phrase);
+    gboolean rememberCloudInput (pinyin_instance_t *instance, const gchar *pinyin, const gchar *phrase);
 
     /* use static initializer in C++. */
     static LibPinyinBackEnd & instance (void) { return *m_instance; }
@@ -63,9 +64,26 @@ public:
     static void finalize (void);
 
 
+protected:
+    bool readNetworkDictionary(pinyin_context_t * context,
+                               const char * filename,
+                               /* inout */ time_t & start,
+                               /* inout */ time_t & loaded);
+
 private:
     gboolean saveUserDB (void);
     static gboolean timeoutCallback (gpointer data);
+
+    bool clearNetworkDictionary (pinyin_context_t * context);
+    bool checkNetworkDictionary (pinyin_context_t * context,
+                                 FILE * dictfile,
+                                 /* inout */ time_t & start,
+                                 /* inout */ time_t & loaded);
+    bool forwardNetworkDictionary (FILE * dictfile,
+                                   /* in */ time_t loaded);
+    bool importRestNetworkDictionary (pinyin_context_t * context,
+                                      FILE * dictfile,
+                                      /* out */ time_t & loaded);
 
 private:
     /* libpinyin context */

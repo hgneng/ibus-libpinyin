@@ -4,19 +4,18 @@
 #
 # Copyright (c) 2008-2010 Peng Huang <shawn.p.huang@gmail.com>
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2, or (at your option)
-# any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+## This program is free software: you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation, either version 3 of the License, or
+## (at your option) any later version.
+##
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 AM_CFLAGS = -I/usr/include/speech-dispatcher -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I utfcpp/source
 AM_LDADD = -lspeechd -lglib-2.0
@@ -110,6 +109,15 @@ ibus_engine_libpinyin_c_sources += \
 	$(NULL)
 endif
 
+if ENABLE_CLOUD_INPUT_MODE
+ibus_engine_libpinyin_h_sources += \
+	PYPCloudCandidates.h \
+	$(NULL)
+ibus_engine_libpinyin_c_sources += \
+	PYPCloudCandidates.cc \
+	$(NULL)
+endif
+
 if IBUS_BUILD_STROKE_INPUT_MODE
 ibus_engine_libpinyin_c_sources += PYStrokeEditor.cc
 endif
@@ -173,6 +181,21 @@ if IBUS_BUILD_LUA_EXTENSION
 	@LUA_LIBS@ \
 	-L../lua/ \
 	-lpylua \
+	$(NULL)
+endif
+
+if ENABLE_CLOUD_INPUT_MODE
+ibus_engine_libpinyin_CXXFLAGS += \
+	@LIBSOUP_CFLAGS@ \
+	@JSONGLIB_CFLAGS@ \
+	-DENABLE_CLOUD_INPUT_MODE \
+	$(NULL)
+endif
+
+if ENABLE_CLOUD_INPUT_MODE
+ibus_engine_libpinyin_LDADD += \
+	@LIBSOUP_LIBS@ \
+	@JSONGLIB_LIBS@ \
 	$(NULL)
 endif
 

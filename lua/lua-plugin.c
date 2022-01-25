@@ -4,19 +4,18 @@
  *
  * Copyright (c) 2010 Peng Wu <alexepico@gmail.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 
@@ -412,27 +411,56 @@ static const lua_command_candidate_t * ibus_engine_plugin_get_candidate(lua_Stat
 }
 
 /**
- * retrieve the first string value. (value has been copied.)
+ * retrieve the number of string values.
  */
-gchar * ibus_engine_plugin_get_first_result(IBusEnginePlugin * plugin){
+gint ibus_engine_plugin_get_n_result(IBusEnginePlugin * plugin){
+  IBusEnginePluginPrivate * priv = IBUS_ENGINE_PLUGIN_GET_PRIVATE(plugin);
+  int type;
+  lua_State * L = priv->L;
+
+  type = lua_type(L ,-1);
+  if ( LUA_TNUMBER == type || LUA_TBOOLEAN == type || LUA_TSTRING == type)
+    return 1;
+  else if( LUA_TTABLE == type )
+    return lua_objlen (L, -1);
+
+  return 0;
+}
+
+/**
+ * retrieve the nth string value. (value has been copied.)
+ */
+gchar * ibus_engine_plugin_get_nth_result(IBusEnginePlugin * plugin, gint index){
   IBusEnginePluginPrivate * priv = IBUS_ENGINE_PLUGIN_GET_PRIVATE(plugin);
   const char * result = NULL; int type;
   lua_State * L = priv->L;
 
   type = lua_type(L ,-1);
   if ( LUA_TNUMBER == type || LUA_TBOOLEAN == type || LUA_TSTRING == type) {
+    /* check index value */
+    g_assert(0 == index);
     result = g_strdup(lua_tostring(L, -1));
-    lua_pop(L, 1);
   } else if( LUA_TTABLE == type ){
-    lua_pushinteger(L, 1);
+    /* check index value */
+    g_assert(index < lua_objlen (L, -1));
+    lua_pushinteger(L, (guint) index + 1);
     lua_gettable(L, -2);
     int type = lua_type(L, -1);
     if ( LUA_TNUMBER == type || LUA_TBOOLEAN == type || LUA_TSTRING == type )
       result = g_strdup(lua_tostring(L, -1));
-    lua_pop(L, 2);
+    lua_pop(L, 1);
   }
 
   return (char *)result;
+}
+
+/**
+ * clear the string values from the stack.
+ */
+void ibus_engine_plugin_clear_results(IBusEnginePlugin * plugin){
+  IBusEnginePluginPrivate * priv = IBUS_ENGINE_PLUGIN_GET_PRIVATE(plugin);
+  lua_State * L = priv->L;
+  lua_pop(L, 1);
 }
 
 /**

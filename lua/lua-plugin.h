@@ -4,19 +4,18 @@
  *
  * Copyright (c) 2010 Peng Wu <alexepico@gmail.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 
@@ -176,9 +175,19 @@ const lua_command_t * ibus_engine_plugin_lookup_command(IBusEnginePlugin * plugi
 int ibus_engine_plugin_call(IBusEnginePlugin * plugin, const char * lua_function_name, const char * argument /*optional, maybe NULL.*/);
 
 /**
- * retrieve the first string value. (value has been copied.)
+ * retrieve the number of string values.
  */
-gchar * ibus_engine_plugin_get_first_result(IBusEnginePlugin * plugin);
+gint ibus_engine_plugin_get_n_result(IBusEnginePlugin * plugin);
+
+/**
+ * retrieve the nth string value. (value has been copied.)
+ */
+gchar * ibus_engine_plugin_get_nth_result(IBusEnginePlugin * plugin, gint index);
+
+/**
+ * clear the string values from the stack.
+ */
+void ibus_engine_plugin_clear_results(IBusEnginePlugin * plugin);
 
 /**
  * retrieve the retval string value. (value has been copied.)

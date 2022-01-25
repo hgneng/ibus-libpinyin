@@ -4,19 +4,18 @@
  *
  * Copyright (c) 2011 Peng Wu <alexepico@gmail.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #ifndef __PY_LIB_PINYIN_BASE_EDITOR_H_
 #define __PY_LIB_PINYIN_BASE_EDITOR_H_
@@ -40,10 +39,15 @@
 
 #include "PYPEmojiCandidates.h"
 
+#ifdef ENABLE_CLOUD_INPUT_MODE
+#include "PYPCloudCandidates.h"
+#endif
+
 namespace PY {
 
 class PhoneticEditor : public Editor {
     friend class LibPinyinCandidates;
+    friend class CloudCandidates;
 
 public:
     PhoneticEditor (PinyinProperties & props, Config & config);
@@ -126,6 +130,10 @@ protected:
     EmojiCandidates m_emoji_candidates;
 
     TraditionalCandidates m_traditional_candidates;
+
+#ifdef ENABLE_CLOUD_INPUT_MODE
+    CloudCandidates m_cloud_candidates;
+#endif
 };
 
 };

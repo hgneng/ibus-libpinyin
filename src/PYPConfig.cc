@@ -4,19 +4,18 @@
  *
  * Copyright (c) 2008-2010 Peng Huang <shawn.p.huang@gmail.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "PYPConfig.h"
 
@@ -57,6 +56,9 @@ const gchar * const CONFIG_GUIDE_KEY                 = "guide-key";
 const gchar * const CONFIG_AUXILIARY_SELECT_KEY_F    = "auxiliary-select-key-f";
 const gchar * const CONFIG_AUXILIARY_SELECT_KEY_KP   = "auxiliary-select-key-kp";
 const gchar * const CONFIG_ENTER_KEY                 = "enter-key";
+const gchar * const CONFIG_LUA_EXTENSION             = "lua-extension";
+const gchar * const CONFIG_ENGLISH_INPUT_MODE        = "english-input-mode";
+const gchar * const CONFIG_STROKE_INPUT_MODE         = "stroke-input-mode";
 const gchar * const CONFIG_IMPORT_DICTIONARY         = "import-dictionary";
 const gchar * const CONFIG_EXPORT_DICTIONARY         = "export-dictionary";
 const gchar * const CONFIG_CLEAR_USER_DATA           = "clear-user-data";
@@ -66,6 +68,12 @@ const gchar * const CONFIG_LETTER_SWITCH             = "letter-switch";
 const gchar * const CONFIG_PUNCT_SWITCH              = "punct-switch";
 const gchar * const CONFIG_BOTH_SWITCH               = "both-switch";
 const gchar * const CONFIG_TRAD_SWITCH               = "trad-switch";
+const gchar * const CONFIG_NETWORK_DICTIONARY_START_TIMESTAMP = "network-dictionary-start-timestamp";
+const gchar * const CONFIG_NETWORK_DICTIONARY_END_TIMESTAMP   = "network-dictionary-end-timestamp";
+const gchar * const CONFIG_INIT_ENABLE_CLOUD_INPUT   = "enable-cloud-input";
+const gchar * const CONFIG_CLOUD_INPUT_SOURCE        = "cloud-input-source";
+const gchar * const CONFIG_CLOUD_CANDIDATES_NUMBER   = "cloud-candidates-number";
+const gchar * const CONFIG_CLOUD_REQUEST_DELAY_TIME  = "cloud-request-delay-time";
 
 const pinyin_option_t PINYIN_DEFAULT_OPTION =
         PINYIN_INCOMPLETE |
@@ -93,6 +101,20 @@ LibPinyinConfig::~LibPinyinConfig (void)
     m_settings = NULL;
 }
 
+gboolean
+LibPinyinConfig::networkDictionaryStartTimestamp (gint64 timestamp)
+{
+    m_network_dictionary_start_timestamp = timestamp;
+    return write (CONFIG_NETWORK_DICTIONARY_START_TIMESTAMP, timestamp);
+}
+
+gboolean
+LibPinyinConfig::networkDictionaryEndTimestamp (gint64 timestamp)
+{
+    m_network_dictionary_end_timestamp = timestamp;
+    return write (CONFIG_NETWORK_DICTIONARY_END_TIMESTAMP, timestamp);
+}
+
 void
 LibPinyinConfig::initDefaultValues (void)
 {
@@ -109,7 +131,7 @@ LibPinyinConfig::initDefaultValues (void)
 
     m_shift_select_candidate = FALSE;
     m_minus_equal_page = TRUE;
-    m_comma_period_page = TRUE;
+    m_comma_period_page = FALSE;
     m_auto_commit = FALSE;
 
     m_double_pinyin = FALSE;
@@ -131,6 +153,20 @@ LibPinyinConfig::initDefaultValues (void)
     m_punct_switch = "<Control>period";
     m_both_switch = "";
     m_trad_switch = "<Control><Shift>f";
+
+    m_enter_key = TRUE;
+
+    m_lua_extension = TRUE;
+    m_english_input_mode = TRUE;
+    m_stroke_input_mode = TRUE;
+
+    m_network_dictionary_start_timestamp = 0;
+    m_network_dictionary_end_timestamp = 0;
+
+    m_enable_cloud_input = FALSE;
+    m_cloud_candidates_number = 1;
+    m_cloud_input_source = CLOUD_INPUT_SOURCE_BAIDU;
+    m_cloud_request_delay_time = 600;
 }
 
 static const struct {
@@ -166,7 +202,17 @@ static const struct{
     DisplayStyle display_style;
 } display_style_options [] = {
     {0, DISPLAY_STYLE_TRADITIONAL},
-    {1, DISPLAY_STYLE_COMPACT}
+    {1, DISPLAY_STYLE_COMPACT},
+    {2, DISPLAY_STYLE_COMPATIBILITY}
+};
+
+static const struct{
+    gint cloud_input_source_index;
+    CloudInputSource cloud_input_source;
+} cloud_input_source_options [] = {
+    {0, CLOUD_INPUT_SOURCE_BAIDU},
+    {1, CLOUD_INPUT_SOURCE_GOOGLE},
+    {2, CLOUD_INPUT_SOURCE_GOOGLE_CN}
 };
 
 void
@@ -245,6 +291,9 @@ LibPinyinConfig::readDefaultValues (void)
     m_both_switch = read (CONFIG_BOTH_SWITCH, "");
     m_trad_switch = read (CONFIG_TRAD_SWITCH, "<Control><Shift>f");
 
+    m_network_dictionary_start_timestamp = read (CONFIG_NETWORK_DICTIONARY_START_TIMESTAMP, (gint64) 0);
+    m_network_dictionary_end_timestamp = read (CONFIG_NETWORK_DICTIONARY_END_TIMESTAMP, (gint64) 0);
+
     /* fuzzy pinyin */
     if (read (CONFIG_FUZZY_PINYIN, false))
         m_option_mask |= PINYIN_AMB_ALL;
@@ -260,6 +309,29 @@ LibPinyinConfig::readDefaultValues (void)
         else {
             m_option &= ~options[i].option;
         }
+    }
+
+    m_enable_cloud_input = read (CONFIG_INIT_ENABLE_CLOUD_INPUT, false);
+
+    /* set cloud input source option. */
+    index = read (CONFIG_CLOUD_INPUT_SOURCE, 0);
+    m_cloud_input_source = CLOUD_INPUT_SOURCE_BAIDU;
+    for (guint i = 0; i < G_N_ELEMENTS (cloud_input_source_options); i++) {
+        if (index == cloud_input_source_options[i].cloud_input_source_index) {
+            m_cloud_input_source = cloud_input_source_options[i].cloud_input_source;
+        }
+    }
+
+    m_cloud_candidates_number = read (CONFIG_CLOUD_CANDIDATES_NUMBER, 1);
+    if (m_cloud_candidates_number > 10 || m_cloud_candidates_number < 1) {
+        m_cloud_candidates_number = 1;
+        g_warn_if_reached ();
+    }
+
+    m_cloud_request_delay_time = read (CONFIG_CLOUD_REQUEST_DELAY_TIME, 600);
+    if (m_cloud_request_delay_time > 2000 || m_cloud_request_delay_time < 200) {
+        m_cloud_request_delay_time = 600;
+        g_warn_if_reached ();
     }
 #endif
 }
@@ -326,6 +398,39 @@ LibPinyinConfig::valueChanged (const std::string &schema_id,
         m_both_switch = normalizeGVariant (value, std::string (""));
     } else if (CONFIG_TRAD_SWITCH == name) {
         m_trad_switch = normalizeGVariant (value, std::string ("<Control><Shift>f"));
+    } else if (CONFIG_NETWORK_DICTIONARY_START_TIMESTAMP == name) {
+        m_network_dictionary_start_timestamp = normalizeGVariant (value, (gint64) 0);
+    } else if (CONFIG_NETWORK_DICTIONARY_END_TIMESTAMP == name) {
+        m_network_dictionary_end_timestamp = normalizeGVariant (value, (gint64) 0);
+    }
+    /*cloud input*/
+    else if (CONFIG_INIT_ENABLE_CLOUD_INPUT == name) {
+        m_enable_cloud_input = normalizeGVariant (value, false);
+    }
+    else if (CONFIG_CLOUD_INPUT_SOURCE == name) {
+        const gint index = normalizeGVariant (value, 0);
+        m_cloud_input_source = CLOUD_INPUT_SOURCE_BAIDU;
+
+        /* set cloud input source option. */
+        for (guint i = 0; i < G_N_ELEMENTS (cloud_input_source_options); i++) {
+            if (index == cloud_input_source_options[i].cloud_input_source_index) {
+                m_cloud_input_source = cloud_input_source_options[i].cloud_input_source;
+            }
+        }
+    }
+    else if (CONFIG_CLOUD_CANDIDATES_NUMBER == name) {
+        m_cloud_candidates_number = normalizeGVariant (value, 1);
+        if (m_cloud_candidates_number > 10 || m_cloud_candidates_number < 1) {
+            m_cloud_candidates_number = 1;
+            g_warn_if_reached ();
+        }
+    }
+    else if (CONFIG_CLOUD_REQUEST_DELAY_TIME == name) {
+        m_cloud_request_delay_time = read (CONFIG_CLOUD_REQUEST_DELAY_TIME, 600);
+        if (m_cloud_request_delay_time > 2000 || m_cloud_request_delay_time < 200) {
+            m_cloud_request_delay_time = 600;
+            g_warn_if_reached ();
+        }
     }
     /* fuzzy pinyin */
     else if (CONFIG_FUZZY_PINYIN == name) {
@@ -443,8 +548,12 @@ PinyinConfig::readDefaultValues (void)
     /* other */
     m_shift_select_candidate = read (CONFIG_SHIFT_SELECT_CANDIDATE, false);
     m_minus_equal_page = read (CONFIG_MINUS_EQUAL_PAGE, true);
-    m_comma_period_page = read (CONFIG_COMMA_PERIOD_PAGE, true);
+    m_comma_period_page = read (CONFIG_COMMA_PERIOD_PAGE, false);
     m_auto_commit = read (CONFIG_AUTO_COMMIT, false);
+
+    m_lua_extension = read (CONFIG_LUA_EXTENSION, true);
+    m_english_input_mode = read (CONFIG_ENGLISH_INPUT_MODE, true);
+    m_stroke_input_mode = read (CONFIG_STROKE_INPUT_MODE, true);
 
     /* lua */
     m_lua_converter = read (CONFIG_LUA_CONVERTER, "");
@@ -506,18 +615,26 @@ PinyinConfig::valueChanged (const std::string &schema_id,
     else if (CONFIG_MINUS_EQUAL_PAGE == name)
         m_minus_equal_page = normalizeGVariant (value, true);
     else if (CONFIG_COMMA_PERIOD_PAGE == name)
-        m_comma_period_page = normalizeGVariant (value, true);
+        m_comma_period_page = normalizeGVariant (value, false);
     else if (CONFIG_LUA_CONVERTER == name)
         m_lua_converter = normalizeGVariant (value, std::string (""));
     else if (CONFIG_AUTO_COMMIT == name)
         m_auto_commit = normalizeGVariant (value, false);
+    else if (CONFIG_LUA_EXTENSION == name)
+        m_lua_extension = normalizeGVariant (value, true);
+    else if (CONFIG_ENGLISH_INPUT_MODE == name)
+        m_english_input_mode = normalizeGVariant (value, true);
+    else if (CONFIG_STROKE_INPUT_MODE == name)
+        m_stroke_input_mode = normalizeGVariant (value, true);
     else if (CONFIG_IMPORT_DICTIONARY == name) {
         std::string filename = normalizeGVariant (value, std::string(""));
-        LibPinyinBackEnd::instance ().importPinyinDictionary (filename.c_str ());
+        if (!filename.empty ())
+            LibPinyinBackEnd::instance ().importPinyinDictionary (filename.c_str ());
     }
     else if (CONFIG_EXPORT_DICTIONARY == name) {
         std::string filename = normalizeGVariant (value, std::string(""));
-        LibPinyinBackEnd::instance ().exportPinyinDictionary (filename.c_str ());
+        if (!filename.empty ())
+            LibPinyinBackEnd::instance ().exportPinyinDictionary (filename.c_str ());
     }
     else if (CONFIG_CLEAR_USER_DATA == name) {
         std::string target = normalizeGVariant (value, std::string(""));

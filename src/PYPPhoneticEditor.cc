@@ -4,19 +4,18 @@
  *
  * Copyright (c) 2011 Peng Wu <alexepico@gmail.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "PYPPhoneticEditor.h"
@@ -41,6 +40,9 @@ PhoneticEditor::PhoneticEditor (PinyinProperties &props,
     m_lua_converter_candidates (this),
 #endif
     m_emoji_candidates (this),
+#ifdef ENABLE_CLOUD_INPUT_MODE
+    m_cloud_candidates(this),
+#endif
     m_traditional_candidates (this, config)
 {
     ibs_init();
@@ -156,7 +158,7 @@ PhoneticEditor::processFunctionKey (guint keyval, guint keycode, guint modifiers
             reset ();
             return TRUE;
         default:
-            return TRUE;
+            return FALSE;
         }
     } else { /* ctrl key pressed. */
         switch (keyval) {
@@ -191,10 +193,10 @@ PhoneticEditor::processFunctionKey (guint keyval, guint keycode, guint modifiers
                 return TRUE;
             }
         default:
-            return TRUE;
+            return FALSE;
         }
     }
-    return TRUE;
+    return FALSE;
 }
 
 gboolean
@@ -257,6 +259,12 @@ PhoneticEditor::updateCandidates (void)
         m_lua_converter_candidates.setConverter (converter.c_str ());
         m_lua_converter_candidates.processCandidates (m_candidates);
     }
+#endif
+
+#ifdef ENABLE_CLOUD_INPUT_MODE
+    /* keep me behind the other kinds of candidates which are inserted after n-gram candidates */
+    if(m_config.enableCloudInput ())
+        m_cloud_candidates.processCandidates (m_candidates);
 #endif
 
     if (!m_props.modeSimp ())
@@ -394,6 +402,11 @@ PhoneticEditor::selectCandidateInternal (EnhancedCandidate & candidate)
 
     case CANDIDATE_TRADITIONAL_CHINESE:
         return m_traditional_candidates.selectCandidate (candidate);
+
+#ifdef ENABLE_CLOUD_INPUT_MODE
+    case CANDIDATE_CLOUD_INPUT:
+        return m_cloud_candidates.selectCandidate (candidate);
+#endif
 
 #ifdef IBUS_BUILD_LUA_EXTENSION
     case CANDIDATE_LUA_TRIGGER:

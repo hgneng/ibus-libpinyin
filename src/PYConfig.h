@@ -4,19 +4,18 @@
  *
  * Copyright (c) 2008-2010 Peng Huang <shawn.p.huang@gmail.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #ifndef __PY_CONFIG_H_
 #define __PY_CONFIG_H_
@@ -36,8 +35,15 @@ namespace PY {
 
 typedef enum {
     DISPLAY_STYLE_TRADITIONAL,
-    DISPLAY_STYLE_COMPACT
+    DISPLAY_STYLE_COMPACT,
+    DISPLAY_STYLE_COMPATIBILITY
 } DisplayStyle;
+
+enum CloudInputSource{
+    CLOUD_INPUT_SOURCE_BAIDU,
+    CLOUD_INPUT_SOURCE_GOOGLE,
+    CLOUD_INPUT_SOURCE_GOOGLE_CN
+};
 
 class Config {
 protected:
@@ -70,7 +76,10 @@ public:
     gboolean guideKey (void) const              { return m_guide_key; }
     gboolean auxiliarySelectKeyF (void) const   { return m_auxiliary_select_key_f; }
     gboolean auxiliarySelectKeyKP (void) const  { return m_auxiliary_select_key_kp; }
-    gboolean enterKey (void) const  { return m_enter_key; }
+    gboolean enterKey (void) const              { return m_enter_key; }
+    gboolean luaExtension (void) const          { return m_lua_extension; }
+    gboolean englishInputMode (void) const      { return m_english_input_mode; }
+    gboolean strokeInputMode (void) const       { return m_stroke_input_mode; }
 
     std::string mainSwitch (void) const         { return m_main_switch; }
     std::string letterSwitch (void) const       { return m_letter_switch; }
@@ -79,11 +88,36 @@ public:
     std::string tradSwitch (void) const         { return m_trad_switch; }
     std::string openccConfig (void) const       { return m_opencc_config; }
 
+    gint64 networkDictionaryStartTimestamp (void) const
+    { return m_network_dictionary_start_timestamp; }
+    gint64 networkDictionaryEndTimestamp (void) const
+    { return m_network_dictionary_end_timestamp; }
+
+public:
+    /* write option */
+    virtual gboolean networkDictionaryStartTimestamp (gint64 timestamp)
+    { return FALSE; }
+    virtual gboolean networkDictionaryEndTimestamp (gint64 timestamp)
+    { return FALSE; }
+
+public:
+    /* cloud option */
+    gboolean enableCloudInput (void) const      { return m_enable_cloud_input; }
+    CloudInputSource cloudInputSource (void) const { return m_cloud_input_source; }
+    guint cloudCandidatesNumber (void) const    { return m_cloud_candidates_number; }
+    guint cloudRequestDelayTime (void) const    { return m_cloud_request_delay_time; }
+
 protected:
     bool read (const gchar * name, bool defval);
     gint read (const gchar * name, gint defval);
     std::string read (const gchar * name, const gchar * defval);
+    gint64 read (const gchar * name, gint64 defval);
     void initDefaultValues (void);
+
+    gboolean write (const gchar * name, bool val);
+    gboolean write (const gchar * name, gint val);
+    gboolean write (const gchar * name, const gchar * val);
+    gboolean write (const gchar * name, gint64 val);
 
     virtual void readDefaultValues (void);
     virtual gboolean valueChanged (const std::string  &schema_id,
@@ -132,12 +166,23 @@ protected:
 
     gboolean m_enter_key;
 
+    gboolean m_lua_extension;
+    gboolean m_english_input_mode;
+    gboolean m_stroke_input_mode;
+
     std::string m_main_switch;
     std::string m_letter_switch;
     std::string m_punct_switch;
     std::string m_both_switch;
     std::string m_trad_switch;
 
+    gint64 m_network_dictionary_start_timestamp;
+    gint64 m_network_dictionary_end_timestamp;
+
+    gboolean m_enable_cloud_input;
+    CloudInputSource m_cloud_input_source;
+    guint m_cloud_candidates_number;
+    guint m_cloud_request_delay_time;
 };
 
 
@@ -172,6 +217,17 @@ normalizeGVariant (GVariant *value, const std::string &defval)
         return defval;
     }
     return g_variant_get_string (value, NULL);
+}
+
+static inline gint64
+normalizeGVariant (GVariant *value, gint64 defval)
+{
+    if (value == NULL ||
+        g_variant_classify (value) != G_VARIANT_CLASS_INT64) {
+        g_warn_if_reached ();
+        return defval;
+    }
+    return g_variant_get_int64 (value);
 }
 
 };

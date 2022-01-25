@@ -4,25 +4,26 @@
  *
  * Copyright (c) 2011 Peng Wu <alexepico@gmail.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "PYLibPinyin.h"
 
 #include <string.h>
+#include <time.h>
 #include <pinyin.h>
+#include "PYString.h"
 #include "PYPConfig.h"
 
 #define LIBPINYIN_SAVE_TIMEOUT   (5 * 60)
@@ -69,7 +70,19 @@ LibPinyinBackEnd::initPinyinContext (Config *config)
     context = pinyin_init (LIBPINYIN_DATADIR, userdir);
     g_free (userdir);
 
-    const char *dicts = config->dictionaries ().c_str ();
+    /* init network dictionary */
+    time_t start = config->networkDictionaryStartTimestamp ();
+    time_t end = config->networkDictionaryEndTimestamp ();
+
+    readNetworkDictionary (context, PKGDATADIR G_DIR_SEPARATOR_S "network.txt",
+                           start, end);
+
+    /* save the timestamp */
+    config->networkDictionaryStartTimestamp (start);
+    config->networkDictionaryEndTimestamp (end);
+
+    /* load addon dictionaries */
+    String dicts = config->dictionaries ();
     gchar ** indices = g_strsplit_set (dicts, ";", -1);
     for (size_t i = 0; i < g_strv_length(indices); ++i) {
         int index = atoi (indices [i]);
@@ -115,6 +128,18 @@ LibPinyinBackEnd::initChewingContext (Config *config)
     context = pinyin_init (LIBPINYIN_DATADIR, userdir);
     g_free(userdir);
 
+    /* init network dictionary */
+    time_t start = config->networkDictionaryStartTimestamp ();
+    time_t end = config->networkDictionaryEndTimestamp ();
+
+    readNetworkDictionary (context, PKGDATADIR G_DIR_SEPARATOR_S "network.txt",
+                           start, end);
+
+    /* save the timestamp */
+    config->networkDictionaryStartTimestamp (start);
+    config->networkDictionaryEndTimestamp (end);
+
+    /* load addon dictionaries */
     const char *dicts = config->dictionaries ().c_str ();
     gchar ** indices = g_strsplit_set (dicts, ";", -1);
     for (size_t i = 0; i < g_strv_length(indices); ++i) {
@@ -307,7 +332,11 @@ LibPinyinBackEnd::clearPinyinUserData (const char *target)
         g_warning ("unknown clear target: %s.\n", target);
     }
 
-    pinyin_save (m_pinyin_context);
+    /* clear network dictionary */
+    PinyinConfig::instance ().networkDictionaryStartTimestamp (0);
+    PinyinConfig::instance ().networkDictionaryEndTimestamp (0);
+
+    modified ();
     return TRUE;
 }
 
@@ -321,6 +350,16 @@ LibPinyinBackEnd::rememberUserInput (pinyin_instance_t *instance,
 
     /* save later,
        will mark modified from pinyin/bopomofo editor. */
+    return TRUE;
+}
+
+gboolean
+LibPinyinBackEnd::rememberCloudInput (pinyin_instance_t *instance,
+                                      const gchar *pinyin,
+                                      const gchar *phrase)
+{
+    pinyin_parse_more_full_pinyins (instance, pinyin);
+    pinyin_remember_user_input (instance, phrase, -1);
     return TRUE;
 }
 
@@ -349,4 +388,151 @@ LibPinyinBackEnd::saveUserDB (void)
     if (m_chewing_context)
         pinyin_save (m_chewing_context);
     return TRUE;
+}
+
+#define TIMESTAMP_LINE "# timestamp: %ld\n"
+
+bool
+LibPinyinBackEnd::readNetworkDictionary(pinyin_context_t * context,
+                                        const char * filename,
+                                        /* inout */ time_t & start,
+                                        /* inout */ time_t & loaded)
+{
+    time_t current = time (NULL);
+
+    FILE * dictfile = fopen (filename, "r");
+
+    if (NULL == dictfile) {
+        fprintf (stderr, "failed to open file: %s.\n", filename);
+        return FALSE;
+    }
+
+    if (!checkNetworkDictionary (context, dictfile, start, loaded)) {
+        fclose (dictfile);
+        return FALSE;
+    }
+
+    fseek (dictfile, 0, SEEK_SET);
+
+    /* read to the loaded time. */
+    forwardNetworkDictionary (dictfile, loaded);
+
+    /* import the rest of network dictionary. */
+    bool retval = importRestNetworkDictionary (context, dictfile, loaded);
+
+    fclose (dictfile);
+
+    /* if network.txt only contains one time stamp entry */
+    if (start > loaded)
+        loaded = start;
+
+    if (retval)
+        modified ();
+    return TRUE;
+}
+
+bool
+LibPinyinBackEnd::clearNetworkDictionary (pinyin_context_t * context)
+{
+    pinyin_mask_out (context, PHRASE_INDEX_LIBRARY_MASK,
+                     PHRASE_INDEX_MAKE_TOKEN (NETWORK_DICTIONARY, null_token));
+    modified ();
+    return TRUE;
+}
+
+bool
+LibPinyinBackEnd::checkNetworkDictionary (pinyin_context_t * context,
+                                          FILE * dictfile,
+                                          /* inout */ time_t & start,
+                                          /* inout */ time_t & loaded)
+{
+    long stamp = 0;
+    /* check the first line with start time. */
+    int retval = fscanf (dictfile, TIMESTAMP_LINE, &stamp);
+
+    /* empty network dictionary. */
+    if (retval == EOF) {
+        clearNetworkDictionary (context);
+        return FALSE;
+    }
+
+    /* clear network dictionary if start time is changed. */
+    if (start != stamp) {
+        clearNetworkDictionary (context);
+
+        /* reset the time */
+        start = stamp;
+        loaded = stamp - 1;
+    }
+
+    return TRUE;
+}
+
+bool
+LibPinyinBackEnd::forwardNetworkDictionary (FILE * dictfile,
+                                            /* in */ time_t loaded)
+{
+    char* linebuf = NULL; size_t size = 0; ssize_t read;
+    while ((read = getline (&linebuf, &size, dictfile)) != -1) {
+        if (0 == strlen (linebuf))
+            continue;
+
+        if ('#' != linebuf[0])
+            continue;
+
+        time_t stamp;
+        sscanf (linebuf, TIMESTAMP_LINE, &stamp);
+
+        if (loaded < stamp)
+            break;
+    }
+
+    return TRUE;
+}
+
+bool
+LibPinyinBackEnd::importRestNetworkDictionary (pinyin_context_t * context,
+                                               FILE * dictfile,
+                                               /* out */ time_t & loaded)
+{
+    bool retval = FALSE;
+
+    import_iterator_t * iter = pinyin_begin_add_phrases
+        (context, NETWORK_DICTIONARY);
+
+    char* linebuf = NULL; size_t size = 0; ssize_t read;
+    while ((read = getline (&linebuf, &size, dictfile)) != -1) {
+        if (0 == strlen (linebuf))
+            continue;
+
+        if ('#' == linebuf[0]) {
+            sscanf (linebuf, TIMESTAMP_LINE, &loaded);
+            continue;
+        }
+
+        if ( '\n' == linebuf[strlen (linebuf) - 1] ) {
+            linebuf[strlen (linebuf) - 1] = '\0';
+        }
+
+        gchar ** items = g_strsplit_set (linebuf, " \t", 3);
+        guint len = g_strv_length (items);
+
+        gchar * phrase = NULL, * pinyin = NULL;
+        gint count = -1;
+        if (2 == len || 3 == len) {
+            phrase = items[0];
+            pinyin = items[1];
+            if (3 == len)
+                count = atoi (items[2]);
+        } else
+            continue;
+
+        pinyin_iterator_add_phrase (iter, phrase, pinyin, count);
+        retval = TRUE;
+
+        g_strfreev (items);
+    }
+
+    pinyin_end_add_phrases (iter);
+    return retval;
 }

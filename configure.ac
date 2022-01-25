@@ -21,8 +21,8 @@
 # if not 1, append datestamp to the version number.
 m4_define([ibus_released], [1])
 m4_define([ibus_major_version], [1])
-m4_define([ibus_minor_version], [11])
-m4_define([ibus_micro_version], [92])
+m4_define([ibus_minor_version], [12])
+m4_define([ibus_micro_version], [2])
 m4_define(ibus_maybe_datestamp,
     m4_esyscmd([if test x]ibus_released[ != x1; then date +.%Y%m%d | tr -d '\n\r'; fi]))
 
@@ -181,6 +181,30 @@ fi
 
 AM_CONDITIONAL(IBUS_BUILD_LUA_EXTENSION, [test x"$enable_lua_extension" = x"yes"])
 
+# --enable-cloud-input-mode
+CLOUD_INPUT_MODE="False"
+AC_ARG_ENABLE(cloud-input-mode,
+    AC_HELP_STRING([--enable-cloud-input-mode],
+        [add cloud candidates]),
+        [enable_cloud_input_mode=$enableval],
+        [enable_cloud_input_mode=no]
+)
+if test x"$enable_cloud_input_mode" = x"yes"; then
+    # check soup
+    PKG_CHECK_MODULES(LIBSOUP, [libsoup-2.4 >= 2.26])
+    AC_SUBST(LIBSOUP_CFLAGS)
+    AC_SUBST(LIBSOUP_LIBS)
+
+    # check json-glib
+    PKG_CHECK_MODULES(JSONGLIB, [json-glib-1.0 >= 1.0])
+    AC_SUBST(JSONGLIB_CFLAGS)
+    AC_SUBST(JSONGLIB_LIBS)
+
+    CLOUD_INPUT_MODE="True"
+fi
+AM_CONDITIONAL(ENABLE_CLOUD_INPUT_MODE, test x"$enable_cloud_input_mode" = x"yes")
+AC_SUBST(CLOUD_INPUT_MODE)
+
 # --disable-english-input-mode
 AC_ARG_ENABLE(english-input-mode,
     AS_HELP_STRING([--disable-english-input-mode],
@@ -226,6 +250,7 @@ Build options:
     Use opencc                  $enable_opencc
     Use libpinyin               $enable_libpinyin
     Build lua extension         $enable_lua_extension
+    Build cloud input mode      $enable_cloud_input_mode
     Build stroke input mode     $enable_stroke_input_mode
     Build english input mode    $enable_english_input_mode
 ])

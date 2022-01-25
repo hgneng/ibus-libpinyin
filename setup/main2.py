@@ -85,6 +85,7 @@ class PreferencesDialog:
             self.__init_dictionary()
             self.__init_user_data()
             self.__init_shortcut()
+            self.__init_cloud_input()
             self.__init_about()
         elif engine == "libbopomofo":
             self.__config_namespace = "com.github.libpinyin.ibus-libpinyin.libbopomofo"
@@ -95,6 +96,7 @@ class PreferencesDialog:
             self.__init_dictionary()
             #self.__init_user_data()
             self.__init_shortcut()
+            self.__init_bopomofo_cloud_input()
             self.__init_about()
             self.__convert_fuzzy_pinyin_to_bopomofo()
             self.__display_style_box.hide()
@@ -147,6 +149,7 @@ class PreferencesDialog:
         self.__dynamic_adjust = self.__builder.get_object("DynamicAdjust")
         self.__remember_every_input = self.__builder.get_object("RememberEveryInput")
         self.__show_suggestion = self.__builder.get_object("ShowSuggestion")
+        self.__emoji_candidate = self.__builder.get_object("EmojiCandidate")
         self.__sort_candidate_option = self.__builder.get_object("SortCandidateOption")
 
         # read values
@@ -162,6 +165,7 @@ class PreferencesDialog:
         self.__dynamic_adjust.set_active(self.__get_value("dynamic-adjust"))
         self.__remember_every_input.set_active(self.__get_value("remember-every-input"))
         self.__show_suggestion.set_active(self.__get_value("show-suggestion"))
+        self.__emoji_candidate.set_active(self.__get_value("emoji-candidate"))
         self.__sort_candidate_option.set_active(self.__get_value("sort-candidate-option"))
         # connect signals
         self.__init_chinese.connect("toggled", self.__toggled_cb, "init-chinese")
@@ -171,6 +175,7 @@ class PreferencesDialog:
         self.__dynamic_adjust.connect("toggled", self.__toggled_cb, "dynamic-adjust")
         self.__remember_every_input.connect("toggled", self.__toggled_cb, "remember-every-input")
         self.__show_suggestion.connect("toggled", self.__toggled_cb, "show-suggestion")
+        self.__emoji_candidate.connect("toggled", self.__toggled_cb, "emoji-candidate")
 
         def __display_size_changed_cb(widget):
             self.__set_value("display-style", widget.get_active())
@@ -200,7 +205,7 @@ class PreferencesDialog:
         self.__double_pinyin_schema = self.__builder.get_object("DoublePinyinSchema")
         # self.__double_pinyin_schema_label = self.__builder.get_object("labelDoublePinyinSchema")
         self.__double_pinyin_show_raw = self.__builder.get_object("DoublePinyinShowRaw")
-        self.__double_pinyin_show_raw.hide ()
+        self.__double_pinyin_show_raw.hide()
 
         # read value
         self.__incomplete_pinyin.set_active(self.__get_value("incomplete-pinyin"))
@@ -430,10 +435,11 @@ class PreferencesDialog:
 
     def __import_dictionary_cb(self, widget):
         dialog = Gtk.FileChooserDialog \
-            (_("Please choose a file"), self.__dialog,
-             Gtk.FileChooserAction.OPEN,
-             (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-              Gtk.STOCK_OPEN, Gtk.ResponseType.OK))
+            (title = _("Please choose a file"), parent = self.__dialog,
+             action = Gtk.FileChooserAction.OPEN)
+
+        dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+                           Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
 
         filter_text = Gtk.FileFilter()
         filter_text.set_name("Text files")
@@ -442,16 +448,19 @@ class PreferencesDialog:
 
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
+            self.__set_value("import-dictionary", "")
             self.__set_value("import-dictionary", dialog.get_filename())
 
         dialog.destroy()
 
     def __export_dictionary_cb(self, widget):
         dialog = Gtk.FileChooserDialog \
-                 (_("Please save a file"), self.__dialog,
-                  Gtk.FileChooserAction.SAVE,
-                  (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-                   Gtk.STOCK_SAVE, Gtk.ResponseType.OK))
+                 (title = _("Please save a file"), parent = self.__dialog,
+                  action = Gtk.FileChooserAction.SAVE)
+
+        dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+                           Gtk.STOCK_SAVE, Gtk.ResponseType.OK)
+
         dialog.set_do_overwrite_confirmation(True)
 
         filter_text = Gtk.FileFilter()
@@ -461,6 +470,7 @@ class PreferencesDialog:
 
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
+            self.__set_value("export-dictionary", "")
             self.__set_value("export-dictionary", dialog.get_filename())
 
         dialog.destroy()
@@ -486,6 +496,73 @@ class PreferencesDialog:
 
     def __shortcut_changed_cb(self, editor, key, value):
         self.__set_value(key, value)
+
+    def __init_bopomofo_cloud_input(self):
+        # init state
+        self.__frame_cloud_input = self.__builder.get_object("frameBopomofoCloudInput")
+        self.__init_enable_cloud_input = self.__builder.get_object("InitEnableBopomofoCloudInput")
+
+        # cloud input option
+        self.__cloud_input_source = self.__builder.get_object("BopomofoCloudInputSource")
+
+        if not config.support_cloud_input():
+            self.__frame_cloud_input.hide()
+
+        # read values
+        self.__init_enable_cloud_input.set_active(self.__get_value("enable-cloud-input"))
+
+        self.__cloud_input_source.set_active(self.__get_value("cloud-input-source"))
+
+        if self.__init_enable_cloud_input.get_active():
+            self.__cloud_input_source.set_sensitive(True)
+        else:
+            self.__cloud_input_source.set_sensitive(False)
+
+        # connect signals
+        def __enable_cloud_input_cb(widget):
+            val = widget.get_active()
+            self.__set_value("enable-cloud-input", val)
+            self.__cloud_input_source.set_sensitive(val)
+
+        def __cloud_input_source_changed_cb(widget):
+            self.__set_value("cloud-input-source", widget.get_active())
+
+        self.__init_enable_cloud_input.connect("toggled", __enable_cloud_input_cb)
+        self.__cloud_input_source.connect("changed", __cloud_input_source_changed_cb)
+
+
+    def __init_cloud_input(self):
+        # init state
+        self.__frame_cloud_input = self.__builder.get_object("frameCloudInput")
+        self.__init_enable_cloud_input = self.__builder.get_object("InitEnableCloudInput")
+
+        # cloud input option
+        self.__cloud_input_source = self.__builder.get_object("CloudInputSource")
+
+        if not config.support_cloud_input():
+            self.__frame_cloud_input.hide()
+
+        # read values
+        self.__init_enable_cloud_input.set_active(self.__get_value("enable-cloud-input"))
+
+        self.__cloud_input_source.set_active(self.__get_value("cloud-input-source"))
+
+        if self.__init_enable_cloud_input.get_active():
+            self.__cloud_input_source.set_sensitive(True)
+        else:
+            self.__cloud_input_source.set_sensitive(False)
+
+        # connect signals
+        def __enable_cloud_input_cb(widget):
+            val = widget.get_active()
+            self.__set_value("enable-cloud-input", val)
+            self.__cloud_input_source.set_sensitive(val)
+
+        def __cloud_input_source_changed_cb(widget):
+            self.__set_value("cloud-input-source", widget.get_active())
+
+        self.__init_enable_cloud_input.connect("toggled", __enable_cloud_input_cb)
+        self.__cloud_input_source.connect("changed", __cloud_input_source_changed_cb)
 
     def __init_about(self):
         # page About

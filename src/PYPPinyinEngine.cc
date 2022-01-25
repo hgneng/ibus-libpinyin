@@ -5,19 +5,18 @@
  * Copyright (c) 2008-2010 Peng Huang <shawn.p.huang@gmail.com>
  * Copyright (c) 2011 Peng Wu <alexepico@gmail.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "PYPPinyinEngine.h"
 #include <string>
@@ -180,9 +179,17 @@ PinyinEngine::processAccelKeyEvent (guint keyval, guint keycode,
                 m_editors[MODE_INIT]->reset ();
             }
 
+            if (!m_editors[MODE_STROKE]->text ().empty ())
+                m_editors[MODE_STROKE]->reset ();
+
             if (!m_editors[MODE_SUGGESTION]->text ().empty ())
                 m_editors[MODE_SUGGESTION]->reset ();
-            m_props.toggleModeChinese ();
+
+            if (m_input_mode != MODE_ENGLISH &&
+                m_input_mode != MODE_EXTENSION) {
+                m_input_mode = MODE_INIT;
+                m_props.toggleModeChinese ();
+            }
             return FALSE;
         }
 
@@ -283,42 +290,63 @@ PinyinEngine::processKeyEvent (guint keyval, guint keycode, guint modifiers)
                     break;
 #ifdef IBUS_BUILD_LUA_EXTENSION
                 case IBUS_i:
+                    if (!PinyinConfig::instance ().luaExtension ())
+                        break;
                     // for full pinyin
                     if (PinyinConfig::instance ().doublePinyin ())
                         break;
                     m_input_mode = MODE_EXTENSION;
                     break;
                 case IBUS_I:
+                    if (!PinyinConfig::instance ().luaExtension ())
+                        break;
                     // for double pinyin
                     if (!PinyinConfig::instance ().doublePinyin ())
+                        break;
+                    // for Caps Lock
+                    if (modifiers & IBUS_LOCK_MASK)
                         break;
                     m_input_mode = MODE_EXTENSION;
                     break;
 #endif
 #ifdef IBUS_BUILD_ENGLISH_INPUT_MODE
                 case IBUS_v:
+                    if (!PinyinConfig::instance ().englishInputMode ())
+                        break;
                     // for full pinyin
                     if (PinyinConfig::instance ().doublePinyin ())
                         break;
                     m_input_mode = MODE_ENGLISH;
                     break;
                 case IBUS_V:
+                    if (!PinyinConfig::instance ().englishInputMode ())
+                        break;
                     // for double pinyin
                     if (!PinyinConfig::instance ().doublePinyin ())
+                        break;
+                    // for Caps Lock
+                    if (modifiers & IBUS_LOCK_MASK)
                         break;
                     m_input_mode = MODE_ENGLISH;
                     break;
 #endif
 #ifdef IBUS_BUILD_STROKE_INPUT_MODE
                 case IBUS_u:
+                    if (!PinyinConfig::instance ().strokeInputMode ())
+                        break;
                     // for full pinyin
                     if (PinyinConfig::instance ().doublePinyin ())
                         break;
                     m_input_mode = MODE_STROKE;
                     break;
                 case IBUS_U:
+                    if (!PinyinConfig::instance ().strokeInputMode ())
+                        break;
                     // for double pinyin
                     if (!PinyinConfig::instance ().doublePinyin ())
+                        break;
+                    // for Caps Lock
+                    if (modifiers & IBUS_LOCK_MASK)
                         break;
                     m_input_mode = MODE_STROKE;
                     break;
