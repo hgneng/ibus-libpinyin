@@ -63,7 +63,7 @@ void ibs_explain(char *text) {
     while (it != s.end()) {
       code = utf8::next(it, s.end());
       g_message("ibs_explain: %d", code);
-      if (code < ibs_word_end && code > 0 && ibs_words[code] > 0) {
+      if (code < ibs_word_end && code > 0 && ibs_words[code] != NULL) {
         c = ibs_words[code];
       } else {
         c = ibs_get_utf8(code).c_str();
