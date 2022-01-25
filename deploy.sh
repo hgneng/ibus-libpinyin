@@ -12,3 +12,4 @@ sudo apt install -y gnome-common
 ./configure  --prefix=/usr --libexecdir=/usr/lib/ibus
 make
 sudo make install
+ibus-daemon -drx
