@@ -17,7 +17,7 @@
 ## You should have received a copy of the GNU General Public License
 ## along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-AM_CFLAGS = -I/usr/include/speech-dispatcher -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I utfcpp/source
+AM_CFLAGS = -I/usr/include/speech-dispatcher -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I $(srcdir)/utfcpp/source
 AM_LDADD = -lspeechd -lglib-2.0
 
 libexec_PROGRAMS = ibus-engine-libpinyin
