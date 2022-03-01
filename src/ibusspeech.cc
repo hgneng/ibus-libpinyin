@@ -162,6 +162,8 @@ void ibs_init() {
     char *error_result = (char*)malloc(1024);
     g_spd = spd_open2("IBusSpeech", "main", NULL, SPD_MODE_THREADED, NULL, 1, &error_result);
     if (g_spd) {
+      spd_set_output_module(g_spd, "ekho");
+      spd_set_language(g_spd, "Mandarin");
       ibs_update_rate();
       ibs_update_char_limit();
       if (ibs_is_proc_running("orca")) {
