@@ -173,7 +173,14 @@ void ibs_init() {
     } else {
       g_message("fail to init speechd: %s", error_result);
     }
+  } else {
+    if (ibs_is_proc_running("orca")) {
+      g_is_mute = false;
+    } else {
+      g_is_mute = true;
+    }
   }
+
   g_message("ibs_init end");
 }
 /*

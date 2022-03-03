@@ -344,6 +344,8 @@ PhoneticEditor::candidateClicked (guint index, guint button, guint state)
 void
 PhoneticEditor::reset (void)
 {
+    g_message("[hgneng]PhoneticEditor::reset");
+    
     m_pinyin_len = 0;
     m_lookup_table.clear ();
 
