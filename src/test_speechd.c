@@ -14,6 +14,8 @@ int main() {
 			error);
 		return 1;
 	}
+	int ret = spd_set_output_module(conn, "voxin");
+	fprintf(stderr, "spd_set_output_module: %d\n", ret);
 
 	fprintf(stderr, "spd say success 123");
 	spd_say(conn, SPD_TEXT, "spd say success 123");
