@@ -17,7 +17,16 @@ int main() {
 	int ret = spd_set_output_module(conn, "voxin");
 	fprintf(stderr, "spd_set_output_module: %d\n", ret);
 
-	fprintf(stderr, "spd say success 123");
-	spd_say(conn, SPD_TEXT, "spd say success 123");
+	fprintf(stderr, "rate: %d\n", spd_get_voice_rate(conn));
+	fprintf(stderr, "spd say success 123\n");
+	spd_say(conn, SPD_MESSAGE, "spd say success 123");
+	spd_set_voice_rate(conn, 34);
+	fprintf(stderr, "rate: %d\n", spd_get_voice_rate(conn));
+	fprintf(stderr, "spd say success 123\n");
+	spd_say(conn, SPD_MESSAGE, "spd say success 123");
+	spd_set_voice_rate(conn, -30);
+	fprintf(stderr, "rate: %d\n", spd_get_voice_rate(conn));
+	fprintf(stderr, "spd say success 456\n");
+	spd_say(conn, SPD_MESSAGE, "spd say success 456");
 	return 0;
 }

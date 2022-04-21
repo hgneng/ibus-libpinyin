@@ -148,10 +148,12 @@ int ibs_get_config_rate() {
 
 void ibs_update_rate() {
   int rate = ibs_get_config_rate();
-  if (rate == -1)
+  if (rate == -1) {
     rate = ibs_get_orca_rate();
+  }
+  int old_rate = spd_get_voice_rate(g_spd);
   spd_set_voice_rate(g_spd, (int)((rate - 50) * 2));
-  g_message("ibs_update_rate: %d -> %d", rate, (int)((rate - 50) * 2));
+  g_message("ibs_update_rate: spd(%d),orca(%d) -> spd(%d)", old_rate, rate, (int)((rate - 50) * 2));
 }
 
 void ibs_update_char_limit() {

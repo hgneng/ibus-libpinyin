@@ -1,13 +1,7 @@
 #!/usr/bin/bash
 
-sudo apt install -y libsqlite3-dev
-sudo apt install -y sqlite3
-sudo apt install -y libsqlite3-dev
-sudo apt install -y libibus-1.0-dev
-sudo apt install -y libpinyin-dev
-sudo apt install -y gnome-common
-sudo apt install -y libspeechd-dev
-sudo apt install -y ibus-libpinyin
+sudo apt install -y build-essential autoconf automake libtool
+sudo apt install -y libsqlite3-dev sqlite3 libibus-1.0-dev libpinyin-dev gnome-common libspeechd-dev ibus-libpinyin
 
 ./autogen.sh
 ./configure  --prefix=/usr --libexecdir=/usr/lib/ibus
