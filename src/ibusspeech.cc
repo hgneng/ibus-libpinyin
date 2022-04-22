@@ -125,12 +125,13 @@ int ibs_get_orca_rate() {
 
 const char* ibs_get_orca_speech_server() {
   ibs_exec("grep -A1 'speechServerInfo' ~/.local/share/orca/user-settings.conf | tail -n 1 | tr -d '\r\n \",'");
-  if (strlen(g_result) > 0) {
-    g_message("ibs_get_orca_speech_server: %s", g_result);
+  g_message("ibs_get_orca_speech_server: %s", g_result);
+  if (strcmp(g_result, "ekho") == 0 ||
+      strcmp(g_result, "voxin") == 0 ||
+      strstr(g_result, "espeak") != NULL) {
     return (const char*)g_result;
   } else {
-    g_message("ibs_get_orca_speech_server: fall back to ekho");
-    return "ekho";
+    return NULL;
   }
 }
 
@@ -175,10 +176,16 @@ void ibs_init() {
     char *error_result = (char*)malloc(1024);
     g_spd = spd_open2("IBusSpeech", "main", NULL, SPD_MODE_THREADED, NULL, 1, &error_result);
     if (g_spd) {
-      int ret = spd_set_output_module(g_spd, ibs_get_orca_speech_server());
-      g_message("spd_set_output_module: %d", ret);
-      //ret = spd_set_language(g_spd, "zh");
-      //g_message("spd_set_language: %d", ret);
+      const char* engine = ibs_get_orca_speech_server();
+      if (engine != NULL) {
+        int ret = spd_set_output_module(g_spd, engine);
+        g_message("spd_set_output_module: %d", ret);
+      }
+
+      if (engine == NULL || strstr(engine, "espeak") != NULL) {
+        int ret = spd_set_language(g_spd, "cmn");
+        g_message("spd_set_language: %d", ret);
+      }
       ibs_update_rate();
       ibs_update_char_limit();
       if (ibs_is_proc_running("orca")) {
