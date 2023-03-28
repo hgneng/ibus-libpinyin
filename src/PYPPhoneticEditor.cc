@@ -23,6 +23,9 @@
 #include "PYConfig.h"
 #include "PYPinyinProperties.h"
 
+extern "C" void ibs_init();
+extern "C" void ibs_explain(char *text);
+
 using namespace PY;
 
 /* init static members */
@@ -45,6 +48,7 @@ PhoneticEditor::PhoneticEditor (PinyinProperties &props,
 #endif
     m_traditional_candidates (this, config)
 {
+	ibs_init();
 }
 
 PhoneticEditor::~PhoneticEditor (){
@@ -208,6 +212,12 @@ void
 PhoneticEditor::updateLookupTableFast (void)
 {
     Editor::updateLookupTableFast (m_lookup_table, TRUE);
+
+    if (m_lookup_table.cursorPos() >= 0) {
+        ibs_explain(m_lookup_table.getCandidate(m_lookup_table.cursorPos())->text);
+        g_message("[hgneng]PhoneticEditor::updateLookupTableFast curpos=%d candidate=%s",
+            m_lookup_table.cursorPos(), m_lookup_table.getCandidate(m_lookup_table.cursorPos())->text);
+    }
 }
 
 void
@@ -219,6 +229,12 @@ PhoneticEditor::updateLookupTable (void)
     fillLookupTable ();
     if (m_lookup_table.size()) {
         Editor::updateLookupTable (m_lookup_table, TRUE);
+	
+	if (m_lookup_table.cursorPos() >= 0) {
+            ibs_explain(m_lookup_table.getCandidate(m_lookup_table.cursorPos())->text);
+            g_message("[hgneng]PhoneticEditor::updateLookupTable curpos=%d candidate=%s",
+                m_lookup_table.cursorPos(), m_lookup_table.getCandidate(m_lookup_table.cursorPos())->text);
+        }
     } else {
         hideLookupTable ();
     }
@@ -511,6 +527,7 @@ PhoneticEditor::selectCandidate (guint i)
 gboolean
 PhoneticEditor::selectCandidate (guint index)
 {
+    g_message("[hgneng]PhoneticEditor::selectCandidate: %d", index);
     if (G_UNLIKELY (index >= m_candidates.size ()))
         return FALSE;
 
@@ -532,6 +549,7 @@ PhoneticEditor::selectCandidate (guint index)
 gboolean
 PhoneticEditor::selectCandidateInPage (guint i)
 {
+    g_message("[hgneng]PhoneticEditor::selectCandidateInPage: %d", i);
     guint page_size = m_lookup_table.pageSize ();
     guint cursor_pos = m_lookup_table.cursorPos ();
 

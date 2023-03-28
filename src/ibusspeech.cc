@@ -21,7 +21,7 @@ void ibs_destroy() {
 }
 
 void ibs_speak(const char *text) {
-  g_message("ibs_speak: %s", text);
+  g_message("ibs_speak: %s (is_mute=%d)", text, g_is_mute);
   if (g_is_mute) {
     return;
   }

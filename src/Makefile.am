@@ -17,6 +17,8 @@
 ## You should have received a copy of the GNU General Public License
 ## along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+AM_CFLAGS = -I/usr/include/speech-dispatcher -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I $(srcdir)/utfcpp/source
+AM_LDADD = -lspeechd -lglib-2.0
 
 libexec_PROGRAMS = ibus-engine-libpinyin
 ibus_engine_libpinyin_built_c_sources = \
@@ -97,6 +99,8 @@ ibus_engine_libpinyin_c_sources += \
 	PYPSuggestionEditor.cc \
 	PYPSuggestionCandidates.cc \
 	PYPEmojiCandidates.cc \
+	chinesedict.cc \
+	ibusspeech.cc \
 	$(NULL)
 
 
@@ -137,6 +141,7 @@ ibus_engine_libpinyin_SOURCES = \
 	$(ibus_engine_libpinyin_h_sources) \
 	$(ibus_engine_libpinyin_built_c_sources) \
 	$(ibus_engine_libpinyin_built_h_sources) \
+	$(AM_CFLAGS) \
 	$(NULL)
 
 
@@ -166,6 +171,7 @@ ibus_engine_libpinyin_LDADD = \
 	@SQLITE_LIBS@ \
 	@LIBPINYIN_LIBS@ \
 	@OPENCC_LIBS@ \
+	$(AM_LDADD) \
 	$(NULL)
 
 ibus_engine_libpinyin_CXXFLAGS += \
