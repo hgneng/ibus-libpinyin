@@ -49,12 +49,14 @@ EnglishCandidates::processCandidates (std::vector<EnhancedCandidate> & candidate
     const char *prefix = m_editor->m_text.c_str ();
     std::vector<std::string> words;
 
-    std::vector<EnhancedCandidate>::iterator pos;
-    for (pos = candidates.begin (); pos != candidates.end (); ++pos) {
+    // Find the insertion position
+    size_t insert_index = 0;
+    for (auto pos = candidates.begin (); pos != candidates.end (); ++pos) {
         if (CANDIDATE_NBEST_MATCH != pos->m_candidate_type &&
             CANDIDATE_LONGER != pos->m_candidate_type &&
             CANDIDATE_LONGER_USER != pos->m_candidate_type)
             break;
+        ++insert_index;
     }
 
     EnhancedCandidate enhanced;
@@ -72,7 +74,9 @@ EnglishCandidates::processCandidates (std::vector<EnhancedCandidate> & candidate
 
             enhanced.m_candidate_id = count;
             enhanced.m_display_string = *iter;
-            candidates.insert (pos + count, enhanced);
+
+            // Use an integer index to avoid iterator undefined behavior
+            candidates.insert(candidates.begin() + insert_index + count, enhanced);
 
             ++count;
         }

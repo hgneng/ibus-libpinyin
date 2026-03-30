@@ -40,7 +40,6 @@ typedef enum {
 } DisplayStyle;
 
 enum CloudInputSource{
-    CLOUD_INPUT_SOURCE_BAIDU,
     CLOUD_INPUT_SOURCE_GOOGLE,
     CLOUD_INPUT_SOURCE_GOOGLE_CN
 };
@@ -62,6 +61,7 @@ public:
     gboolean shiftSelectCandidate (void) const  { return m_shift_select_candidate; }
     gboolean minusEqualPage (void) const        { return m_minus_equal_page; }
     gboolean commaPeriodPage (void) const       { return m_comma_period_page; }
+    gboolean squareBracketPage (void) const     { return m_square_bracket_page; }
     gboolean autoCommit (void) const            { return m_auto_commit; }
     gboolean doublePinyin (void) const          { return m_double_pinyin; }
     DoublePinyinScheme doublePinyinSchema (void) const { return m_double_pinyin_schema; }
@@ -84,6 +84,9 @@ public:
     gboolean englishCandidate (void) const      { return m_english_candidate; }
     gboolean suggestionCandidate (void) const   { return m_suggestion_candidate; }
 
+    gboolean exportUserPhrase (void) const      { return m_export_user_phrase; }
+    gboolean exportBigramPhrase (void) const    { return m_export_bigram_phrase; }
+
     std::string mainSwitch (void) const         { return m_main_switch; }
     std::string letterSwitch (void) const       { return m_letter_switch; }
     std::string punctSwitch (void) const        { return m_punct_switch; }
@@ -98,6 +101,9 @@ public:
 
 public:
     /* write option */
+    virtual gboolean luaConverter (std::string converter)
+    { return FALSE; }
+
     virtual gboolean networkDictionaryStartTimestamp (gint64 timestamp)
     { return FALSE; }
     virtual gboolean networkDictionaryEndTimestamp (gint64 timestamp)
@@ -149,6 +155,7 @@ protected:
     gboolean m_shift_select_candidate;
     gboolean m_minus_equal_page;
     gboolean m_comma_period_page;
+    gboolean m_square_bracket_page;
     gboolean m_auto_commit;
 
     gboolean m_double_pinyin;
@@ -175,6 +182,9 @@ protected:
     gboolean m_emoji_candidate;
     gboolean m_english_candidate;
     gboolean m_suggestion_candidate;
+
+    gboolean m_export_user_phrase;
+    gboolean m_export_bigram_phrase;
 
     std::string m_main_switch;
     std::string m_letter_switch;

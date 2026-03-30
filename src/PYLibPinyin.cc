@@ -44,7 +44,6 @@ LibPinyinBackEnd::LibPinyinBackEnd () {
 LibPinyinBackEnd::~LibPinyinBackEnd () {
     g_timer_destroy (m_timer);
     if (m_timeout_id != 0) {
-        saveUserDB ();
         g_source_remove (m_timeout_id);
     }
 
@@ -278,20 +277,13 @@ LibPinyinBackEnd::importPinyinDictionary (const char *filename)
 }
 
 gboolean
-LibPinyinBackEnd::exportPinyinDictionary (const char *filename)
+LibPinyinBackEnd::exportUserPhrase (FILE *dictfile)
 {
-    /* user phrase library should be already loaded here. */
-    FILE * dictfile = fopen (filename, "w");
-    if (NULL == dictfile)
-        return FALSE;
-
     export_iterator_t * iter = pinyin_begin_get_phrases
         (m_pinyin_context, USER_DICTIONARY);
 
-    if (NULL == iter) {
-        fclose(dictfile);
+    if (NULL == iter)
         return FALSE;
-    }
 
     /* use " " as the separator. */
     while (pinyin_iterator_has_next_phrase (iter)) {
@@ -309,6 +301,54 @@ LibPinyinBackEnd::exportPinyinDictionary (const char *filename)
     }
 
     pinyin_end_get_phrases(iter);
+    return TRUE;
+}
+
+gboolean
+LibPinyinBackEnd::exportBigramPhrase (FILE *dictfile)
+{
+    bigram_export_iterator_t * iter = pinyin_begin_get_bigram_phrases
+        (m_pinyin_context);
+
+    if (NULL == iter)
+        return FALSE;
+
+    /* use " " as the separator. */
+    while (pinyin_bigram_iterator_has_next_phrase (iter)) {
+        gchar * phrase = NULL; gchar * pinyin = NULL;
+        gint count = -1;
+
+        check_result (pinyin_bigram_iterator_get_next_phrase (iter, &phrase, &pinyin, &count));
+
+        if (-1 == count) /* skip output the default count. */
+            fprintf (dictfile, "%s %s\n", phrase, pinyin);
+        else /* output the count. */
+            fprintf (dictfile, "%s %s %d\n", phrase, pinyin, count);
+
+        g_free (phrase); g_free (pinyin);
+    }
+
+    pinyin_end_get_bigram_phrases(iter);
+    return TRUE;
+}
+
+gboolean
+LibPinyinBackEnd::exportPinyinDictionary (const char *filename)
+{
+    if (NULL == m_pinyin_context)
+        return FALSE;
+
+    /* user phrase library should be already loaded here. */
+    FILE * dictfile = fopen (filename, "w");
+    if (NULL == dictfile)
+        return FALSE;
+
+    if (PinyinConfig::instance ().exportUserPhrase ())
+        exportUserPhrase (dictfile);
+
+    if (PinyinConfig::instance ().exportBigramPhrase ())
+        exportBigramPhrase (dictfile);
+
     fclose (dictfile);
     return TRUE;
 }

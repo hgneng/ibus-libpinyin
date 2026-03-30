@@ -20,14 +20,19 @@
 #include "PYPConfig.h"
 
 #include <string.h>
+#include <libintl.h>
 #include <pinyin.h>
 #include "PYBus.h"
+#include "PYXMLUtil.h"
 #include "PYLibPinyin.h"
 #include "PYTableDatabase.h"
 
 #define USE_G_SETTINGS_LIST_KEYS 0
 
 namespace PY {
+
+#define _(text) (dgettext (GETTEXT_PACKAGE, text))
+#define N_(text) text
 
 const gchar * const CONFIG_CORRECT_PINYIN            = "correct-pinyin";
 const gchar * const CONFIG_FUZZY_PINYIN              = "fuzzy-pinyin";
@@ -39,6 +44,7 @@ const gchar * const CONFIG_SORT_OPTION               = "sort-candidate-option";
 const gchar * const CONFIG_SHIFT_SELECT_CANDIDATE    = "shift-select-candidate";
 const gchar * const CONFIG_MINUS_EQUAL_PAGE          = "minus-equal-page";
 const gchar * const CONFIG_COMMA_PERIOD_PAGE         = "comma-period-page";
+const gchar * const CONFIG_SQUARE_BRACKET_PAGE       = "square-bracket-page";
 const gchar * const CONFIG_AUTO_COMMIT               = "auto-commit";
 const gchar * const CONFIG_DOUBLE_PINYIN             = "double-pinyin";
 const gchar * const CONFIG_DOUBLE_PINYIN_SCHEMA      = "double-pinyin-schema";
@@ -63,6 +69,8 @@ const gchar * const CONFIG_USE_CUSTOM_TABLE          = "use-custom-table";
 const gchar * const CONFIG_EMOJI_CANDIDATE           = "emoji-candidate";
 const gchar * const CONFIG_ENGLISH_CANDIDATE         = "english-candidate";
 const gchar * const CONFIG_SUGGESTION_CANDIDATE      = "suggestion-candidate";
+const gchar * const CONFIG_EXPORT_USER_PHRASE        = "export-user-phrase";
+const gchar * const CONFIG_EXPORT_BIGRAM_PHRASE      = "export-bigram-phrase";
 const gchar * const CONFIG_IMPORT_CUSTOM_TABLE       = "import-custom-table";
 const gchar * const CONFIG_EXPORT_CUSTOM_TABLE       = "export-custom-table";
 const gchar * const CONFIG_CLEAR_CUSTOM_TABLE        = "clear-custom-table";
@@ -109,6 +117,14 @@ LibPinyinConfig::~LibPinyinConfig (void)
 }
 
 gboolean
+LibPinyinConfig::luaConverter (std::string converter)
+{
+    m_lua_converter = converter;
+    return write (CONFIG_LUA_CONVERTER, converter.c_str ());
+}
+
+
+gboolean
 LibPinyinConfig::networkDictionaryStartTimestamp (gint64 timestamp)
 {
     m_network_dictionary_start_timestamp = timestamp;
@@ -137,6 +153,9 @@ LibPinyinConfig::initDefaultValues (void)
     m_emoji_candidate = TRUE;
     m_english_candidate = TRUE;
     m_suggestion_candidate = FALSE;
+
+    m_export_user_phrase = TRUE;
+    m_export_bigram_phrase = TRUE;
 
     m_shift_select_candidate = FALSE;
     m_minus_equal_page = TRUE;
@@ -176,7 +195,7 @@ LibPinyinConfig::initDefaultValues (void)
 
     m_enable_cloud_input = FALSE;
     m_cloud_candidates_number = 1;
-    m_cloud_input_source = CLOUD_INPUT_SOURCE_BAIDU;
+    m_cloud_input_source = CLOUD_INPUT_SOURCE_GOOGLE_CN;
     m_cloud_request_delay_time = 600;
 }
 
@@ -223,9 +242,8 @@ static const struct{
     gint cloud_input_source_index;
     CloudInputSource cloud_input_source;
 } cloud_input_source_options [] = {
-    {0, CLOUD_INPUT_SOURCE_BAIDU},
-    {1, CLOUD_INPUT_SOURCE_GOOGLE},
-    {2, CLOUD_INPUT_SOURCE_GOOGLE_CN}
+    {0, CLOUD_INPUT_SOURCE_GOOGLE},
+    {1, CLOUD_INPUT_SOURCE_GOOGLE_CN}
 };
 
 void
@@ -338,7 +356,7 @@ LibPinyinConfig::readDefaultValues (void)
 
     /* set cloud input source option. */
     index = read (CONFIG_CLOUD_INPUT_SOURCE, 0);
-    m_cloud_input_source = CLOUD_INPUT_SOURCE_BAIDU;
+    m_cloud_input_source = CLOUD_INPUT_SOURCE_GOOGLE_CN;
     for (guint i = 0; i < G_N_ELEMENTS (cloud_input_source_options); i++) {
         if (index == cloud_input_source_options[i].cloud_input_source_index) {
             m_cloud_input_source = cloud_input_source_options[i].cloud_input_source;
@@ -434,7 +452,7 @@ LibPinyinConfig::valueChanged (const std::string &schema_id,
     }
     else if (CONFIG_CLOUD_INPUT_SOURCE == name) {
         const gint index = normalizeGVariant (value, 0);
-        m_cloud_input_source = CLOUD_INPUT_SOURCE_BAIDU;
+        m_cloud_input_source = CLOUD_INPUT_SOURCE_GOOGLE_CN;
 
         /* set cloud input source option. */
         for (guint i = 0; i < G_N_ELEMENTS (cloud_input_source_options); i++) {
@@ -576,12 +594,17 @@ PinyinConfig::readDefaultValues (void)
     m_shift_select_candidate = read (CONFIG_SHIFT_SELECT_CANDIDATE, false);
     m_minus_equal_page = read (CONFIG_MINUS_EQUAL_PAGE, true);
     m_comma_period_page = read (CONFIG_COMMA_PERIOD_PAGE, false);
+    m_square_bracket_page = read (CONFIG_SQUARE_BRACKET_PAGE, false);
     m_auto_commit = read (CONFIG_AUTO_COMMIT, false);
 
     m_lua_extension = read (CONFIG_LUA_EXTENSION, true);
     m_english_input_mode = read (CONFIG_ENGLISH_INPUT_MODE, true);
     m_table_input_mode = read (CONFIG_TABLE_INPUT_MODE, true);
     m_use_custom_table = read (CONFIG_USE_CUSTOM_TABLE, false);
+
+    /* export phrases */
+    m_export_user_phrase = read (CONFIG_EXPORT_USER_PHRASE, true);
+    m_export_bigram_phrase = read (CONFIG_EXPORT_BIGRAM_PHRASE, true);
 
     /* lua */
     m_lua_converter = read (CONFIG_LUA_CONVERTER, "");
@@ -646,6 +669,8 @@ PinyinConfig::valueChanged (const std::string &schema_id,
         m_minus_equal_page = normalizeGVariant (value, true);
     else if (CONFIG_COMMA_PERIOD_PAGE == name)
         m_comma_period_page = normalizeGVariant (value, false);
+    else if (CONFIG_SQUARE_BRACKET_PAGE == name)
+        m_square_bracket_page = normalizeGVariant (value, false);
     else if (CONFIG_LUA_CONVERTER == name)
         m_lua_converter = normalizeGVariant (value, std::string (""));
     else if (CONFIG_AUTO_COMMIT == name)
@@ -658,15 +683,23 @@ PinyinConfig::valueChanged (const std::string &schema_id,
         m_table_input_mode = normalizeGVariant (value, true);
     else if (CONFIG_USE_CUSTOM_TABLE == name)
         m_use_custom_table = normalizeGVariant (value, false);
+    else if (CONFIG_EXPORT_USER_PHRASE == name)
+        m_export_user_phrase = normalizeGVariant (value, true);
+    else if (CONFIG_EXPORT_BIGRAM_PHRASE == name)
+        m_export_bigram_phrase = normalizeGVariant (value, true);
     else if (CONFIG_IMPORT_CUSTOM_TABLE == name) {
         std::string filename = normalizeGVariant (value, std::string(""));
-        if (!filename.empty ())
+        if (!filename.empty ()) {
             TableDatabase::userInstance ().importTable (filename.c_str ());
+            show_message (_("The table file is imported."), NULL);
+        }
     }
     else if (CONFIG_EXPORT_CUSTOM_TABLE == name) {
         std::string filename = normalizeGVariant (value, std::string(""));
-        if (!filename.empty ())
+        if (!filename.empty ()) {
             TableDatabase::userInstance ().exportTable (filename.c_str ());
+            show_message (_("The table file is exported."), NULL);
+        }
     }
     else if (CONFIG_CLEAR_CUSTOM_TABLE == name) {
         std::string target = normalizeGVariant (value, std::string(""));
@@ -675,13 +708,17 @@ PinyinConfig::valueChanged (const std::string &schema_id,
     }
     else if (CONFIG_IMPORT_DICTIONARY == name) {
         std::string filename = normalizeGVariant (value, std::string(""));
-        if (!filename.empty ())
+        if (!filename.empty ()) {
             LibPinyinBackEnd::instance ().importPinyinDictionary (filename.c_str ());
+            show_message (_("The pinyin dictionary file is imported."), NULL);
+        }
     }
     else if (CONFIG_EXPORT_DICTIONARY == name) {
         std::string filename = normalizeGVariant (value, std::string(""));
-        if (!filename.empty ())
+        if (!filename.empty ()) {
             LibPinyinBackEnd::instance ().exportPinyinDictionary (filename.c_str ());
+            show_message (_("The pinyin dictionary file is exported."), NULL);
+        }
     }
     else if (CONFIG_CLEAR_USER_DATA == name) {
         std::string target = normalizeGVariant (value, std::string(""));

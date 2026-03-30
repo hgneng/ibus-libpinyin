@@ -47,6 +47,9 @@ TableEditor::~TableEditor ()
 gboolean
 TableEditor::processKeyEvent (guint keyval, guint keycode, guint modifiers)
 {
+    if (modifiers & IBUS_MOD4_MASK)
+        return FALSE;
+
     //IBUS_SHIFT_MASK is removed.
     modifiers &= (IBUS_CONTROL_MASK |
                   IBUS_MOD1_MASK |
@@ -132,6 +135,12 @@ TableEditor::processPageKey (guint keyval)
             return TRUE;
         }
         break;
+    case IBUS_bracketleft:
+        if (m_config.squareBracketPage ()) {
+            pageUp ();
+            return TRUE;
+        }
+        break;
     case IBUS_period:
         if (m_config.commaPeriodPage ()) {
             pageDown ();
@@ -140,6 +149,12 @@ TableEditor::processPageKey (guint keyval)
         break;
     case IBUS_equal:
         if (m_config.minusEqualPage ()) {
+            pageDown ();
+            return TRUE;
+        }
+        break;
+    case IBUS_bracketright:
+        if (m_config.squareBracketPage ()) {
             pageDown ();
             return TRUE;
         }

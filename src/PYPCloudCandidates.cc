@@ -52,6 +52,8 @@ static const std::string CANDIDATE_CLOUD_PREFIX = "☁";
 typedef struct
 {
     guint event_id;
+    SoupMessage *message;
+    GCancellable *cancel_message;
     gchar requested_pinyin[MAX_PINYIN_LEN + 1];
     CloudCandidates *cloud_candidates;
 } CloudAsyncRequestUserData;
@@ -101,10 +103,10 @@ public:
 
         /* parse Json from input steam */
         if (!json_parser_load_from_stream (m_parser, stream, NULL, error) || error != NULL) {
-            g_input_stream_close (stream, NULL, error);  /* Close stream to release libsoup connexion */
+            g_input_stream_close (stream, NULL, error);  /* Close stream to release libsoup connection */
             return PARSER_BAD_FORMAT;
         }
-        g_input_stream_close (stream, NULL, error);  /* Close stream to release libsoup connexion */
+        g_input_stream_close (stream, NULL, error);  /* Close stream to release libsoup connection */
 
         return parseJsonResponse (json_parser_get_root (m_parser));
     }
@@ -215,6 +217,7 @@ public:
     GoogleCloudCandidatesResponseJsonParser (CloudInputSource input_source) : CloudCandidatesResponseJsonParser (input_source) {}
 };
 
+#if 0
 class BaiduCloudCandidatesResponseJsonParser : public CloudCandidatesResponseJsonParser
 {
 private:
@@ -308,7 +311,7 @@ public:
     gchar *getRequestString (const gchar *pinyin, gint number) {
         assert (m_input_source == CLOUD_INPUT_SOURCE_BAIDU);
 
-        const char *BAIDU_URL_TEMPLATE = "http://olime.baidu.com/py?input=%s&inputtype=py&bg=0&ed=%d&result=hanzi&resultcoding=utf-8&ch_en=1&clientinfo=web&version=1";
+        const char *BAIDU_URL_TEMPLATE = "https://olime.baidu.com/py?input=%s&inputtype=py&bg=0&ed=%d&result=hanzi&resultcoding=utf-8&ch_en=1&clientinfo=web&version=1";
 
         return g_strdup_printf (BAIDU_URL_TEMPLATE, pinyin, number);
     }
@@ -316,6 +319,7 @@ public:
 public:
     BaiduCloudCandidatesResponseJsonParser (CloudInputSource input_source) : CloudCandidatesResponseJsonParser (input_source) {}
 };
+#endif
 
 CloudCandidates::CloudCandidates (PhoneticEditor * editor) : m_input_mode(FullPinyin)
 {
@@ -324,8 +328,9 @@ CloudCandidates::CloudCandidates (PhoneticEditor * editor) : m_input_mode(FullPi
 
     m_source_event_id = 0;
     m_message = NULL;
+    m_cancel_message = NULL;
 
-    m_input_source = CLOUD_INPUT_SOURCE_BAIDU;
+    m_input_source = CLOUD_INPUT_SOURCE_GOOGLE_CN;
     m_parser = NULL;
     resetCloudResponseParser ();
 
@@ -345,7 +350,7 @@ CloudCandidates::~CloudCandidates ()
     }
 
     if (m_message) {
-        soup_session_cancel_message (m_session, m_message, SOUP_STATUS_CANCELLED);
+        g_cancellable_cancel (m_cancel_message);
         m_message = NULL;
     }
 
@@ -377,10 +382,8 @@ CloudCandidates::resetCloudResponseParser ()
 
     m_input_source = input_source;
 
-    if (input_source == CLOUD_INPUT_SOURCE_BAIDU)
-        m_parser = new BaiduCloudCandidatesResponseJsonParser (input_source);
-    else if (input_source == CLOUD_INPUT_SOURCE_GOOGLE ||
-             input_source == CLOUD_INPUT_SOURCE_GOOGLE_CN)
+    if (input_source == CLOUD_INPUT_SOURCE_GOOGLE ||
+        input_source == CLOUD_INPUT_SOURCE_GOOGLE_CN)
         m_parser = new GoogleCloudCandidatesResponseJsonParser (input_source);
 }
 
@@ -493,6 +496,15 @@ CloudCandidates::selectCandidate (EnhancedCandidate & enhanced)
 }
 
 void
+releaseUserData (gpointer user_data)
+{
+    CloudAsyncRequestUserData *data = static_cast<CloudAsyncRequestUserData *> (user_data);
+    if (data->event_id != 0) {
+        g_free (user_data);
+    }
+}
+
+void
 CloudCandidates::delayedCloudAsyncRequest (const gchar* pinyin)
 {
     gpointer user_data;
@@ -511,10 +523,14 @@ CloudCandidates::delayedCloudAsyncRequest (const gchar* pinyin)
     data->cloud_candidates = this;
 
     /* record the latest timer */
-    m_source_event_id = g_timeout_add (m_editor->m_config.cloudRequestDelayTime (),
-                                       delayedCloudAsyncRequestCallBack,
-                                       user_data);
+    m_source_event_id = g_timeout_add_full (G_PRIORITY_DEFAULT,
+                                            m_editor->m_config.cloudRequestDelayTime (),
+                                            delayedCloudAsyncRequestCallBack,
+                                            user_data,
+                                            releaseUserData);
     data->event_id = m_source_event_id;
+    data->message = NULL;
+    data->cancel_message = NULL;
 }
 
 gboolean
@@ -532,6 +548,7 @@ CloudCandidates::delayedCloudAsyncRequestCallBack (gpointer user_data)
 
     /* only send with a latest timer */
     if (data->event_id == cloud_candidates->m_source_event_id) {
+        data->event_id = 0;
         cloud_candidates->m_source_event_id = 0;
         cloud_candidates->cloudAsyncRequest (user_data);
     }
@@ -551,12 +568,17 @@ CloudCandidates::cloudAsyncRequest (gpointer user_data)
     gchar *query_request = m_parser->getRequestString (data->requested_pinyin, number);
 
     /* cancel message if there is a pending one */
-    if (m_message)
-        soup_session_cancel_message (m_session, m_message, SOUP_STATUS_CANCELLED);
+    if (m_message) {
+        g_cancellable_cancel (m_cancel_message);
+        m_message = NULL;
+    }
 
-    SoupMessage *msg = soup_message_new ("GET", query_request);
-    soup_session_send_async (m_session, msg, NULL, cloudResponseCallBack, user_data);
-    m_message = msg;
+    m_cancel_message = g_cancellable_new ();
+    data->cancel_message = m_cancel_message;
+
+    m_message = soup_message_new ("GET", query_request);
+    soup_session_send_async (m_session, m_message, SOUP_MESSAGE_PRIORITY_NORMAL, m_cancel_message, cloudResponseCallBack, user_data);
+    data->message = m_message;
 
     /* free url string */
     if (query_request)
@@ -566,18 +588,34 @@ CloudCandidates::cloudAsyncRequest (gpointer user_data)
 void
 CloudCandidates::cloudResponseCallBack (GObject *source_object, GAsyncResult *result, gpointer user_data)
 {
-    GInputStream *stream = soup_session_send_finish (SOUP_SESSION (source_object), result, NULL);
+    GError *error = NULL;
+    GInputStream *stream = soup_session_send_finish (SOUP_SESSION (source_object), result, &error);
     CloudAsyncRequestUserData *data = static_cast<CloudAsyncRequestUserData *> (user_data);
 
     CloudCandidates *cloud_candidates = data->cloud_candidates;
 
-    /* process results */
-    cloud_candidates->processCloudResponse (stream, cloud_candidates->m_editor->m_candidates, data->requested_pinyin);
+    if (!g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+        /* process results */
+        cloud_candidates->processCloudResponse (stream, cloud_candidates->m_editor->m_candidates, data->requested_pinyin);
 
-    cloud_candidates->updateLookupTable ();
+        cloud_candidates->updateLookupTable ();
+
+        /* reset m_message pointer only when it is not replaced with a new m_message */
+        cloud_candidates->m_message = NULL;
+        cloud_candidates->m_cancel_message = NULL;
+    }
+
+    if (error) {
+        g_error_free (error);
+    } else {
+        g_object_unref (stream);
+    }
 
     /* clean up message */
-    cloud_candidates->m_message = NULL;
+    g_object_unref (data->message);
+
+    /* clean up cancellable */
+    g_object_unref (data->cancel_message);
 
     g_free (user_data);
 }
@@ -586,14 +624,14 @@ void
 CloudCandidates::cloudSyncRequest (const gchar* pinyin, std::vector<EnhancedCandidate> & candidates)
 {
     guint number = m_editor->m_config.cloudCandidatesNumber ();
-
     gchar *query_request = m_parser->getRequestString (pinyin, number);
     SoupMessage *msg = soup_message_new ("GET", query_request);
 
     GInputStream *stream = soup_session_send (m_session, msg, NULL, NULL);
-
     processCloudResponse (stream, candidates, pinyin);
 
+    /* free msg */
+    g_object_unref (msg);
     /* free url string */
     if (query_request)
         g_free(query_request);

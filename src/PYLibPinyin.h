@@ -24,6 +24,7 @@
 #include <memory>
 #include <time.h>
 #include <glib.h>
+#include <stdio.h>
 
 typedef struct _pinyin_context_t pinyin_context_t;
 typedef struct _pinyin_instance_t pinyin_instance_t;
@@ -49,6 +50,9 @@ public:
     pinyin_instance_t *allocChewingInstance ();
     void freeChewingInstance (pinyin_instance_t *instance);
     void modified (void);
+
+    gboolean exportUserPhrase (FILE *dictfile);
+    gboolean exportBigramPhrase (FILE *dictfile);
 
     gboolean importPinyinDictionary (const char *filename);
     gboolean exportPinyinDictionary (const char *filename);

@@ -21,8 +21,8 @@
 # if not 1, append datestamp to the version number.
 m4_define([ibus_released], [1])
 m4_define([ibus_major_version], [1])
-m4_define([ibus_minor_version], [15])
-m4_define([ibus_micro_version], [2])
+m4_define([ibus_minor_version], [16])
+m4_define([ibus_micro_version], [6])
 m4_define(ibus_maybe_datestamp,
     m4_esyscmd([if test x]ibus_released[ != x1; then date +.%Y%m%d | tr -d '\n\r'; fi]))
 
@@ -67,7 +67,7 @@ if test -z "$SQLITE3"; then
 fi
 
 PKG_CHECK_MODULES(LIBPINYIN, [
-    libpinyin >= 2.7.91
+    libpinyin >= 2.9.92
 ], [enable_libpinyin=yes])
 
 LIBPINYIN_DATADIR=`$PKG_CONFIG --variable=pkgdatadir libpinyin`
@@ -83,13 +83,19 @@ AC_CHECK_FUNCS([ibus_config_get_values])
 CFLAGS="$save_CFLAGS"
 LIBS="$save_LIBS"
 
-
 # check env
 AC_PATH_PROG(ENV, env)
 AC_SUBST(ENV)
 
 # check python
-AM_PATH_PYTHON([3.7])
+AM_PATH_PYTHON([3.2])
+
+# assign the specified python version
+AC_ARG_WITH(python,
+    AS_HELP_STRING([--with-python[=PATH]], [Select python version]),
+        [PYTHON=$with_python],
+        []
+)
 
 # check icon_prop_key in IBus.EngineDesc
 AC_MSG_CHECKING([if IBus.EngineDesc has get_icon_prop_key])
@@ -159,6 +165,7 @@ AC_ARG_ENABLE(lua-extension,
 )
 
 # check lua
+LUA_EXTENSION="False"
 PKG_CHECK_MODULES(LUA, [
     lua >= 5.1
 ], [],
@@ -173,8 +180,11 @@ then
     [enable_lua_extension=no]
     );
 fi
-
 AM_CONDITIONAL(IBUS_BUILD_LUA_EXTENSION, [test x"$enable_lua_extension" = x"yes"])
+if test x"$enable_lua_extension" = x"yes"; then
+    LUA_EXTENSION="True"
+fi
+AC_SUBST(LUA_EXTENSION)
 
 # --enable-cloud-input-mode
 CLOUD_INPUT_MODE="False"
@@ -186,7 +196,7 @@ AC_ARG_ENABLE(cloud-input-mode,
 )
 if test x"$enable_cloud_input_mode" = x"yes"; then
     # check soup
-    PKG_CHECK_MODULES(LIBSOUP, [libsoup-2.4 >= 2.26])
+    PKG_CHECK_MODULES(LIBSOUP, [libsoup-3.0 >= 3.0])
     AC_SUBST(LIBSOUP_CFLAGS)
     AC_SUBST(LIBSOUP_LIBS)
 
@@ -201,6 +211,7 @@ AM_CONDITIONAL(ENABLE_CLOUD_INPUT_MODE, test x"$enable_cloud_input_mode" = x"yes
 AC_SUBST(CLOUD_INPUT_MODE)
 
 # --disable-english-input-mode
+ENGLISH_INPUT_MODE="False"
 AC_ARG_ENABLE(english-input-mode,
     AS_HELP_STRING([--disable-english-input-mode],
     [do not build english input mode]),
@@ -209,16 +220,39 @@ AC_ARG_ENABLE(english-input-mode,
 )
 
 AM_CONDITIONAL(IBUS_BUILD_ENGLISH_INPUT_MODE, [test x"$enable_english_input_mode" = x"yes"])
+if test x"$enable_english_input_mode" = x"yes"; then
+    ENGLISH_INPUT_MODE="True"
+fi
+AC_SUBST(ENGLISH_INPUT_MODE)
 
 # --disable-table-input-mode
+TABLE_INPUT_MODE="False"
 AC_ARG_ENABLE(table-input-mode,
         AS_HELP_STRING([--disable-table-input-mode],
         [do not build table input mode]),
         [enable_table_input_mode=$enableval],
         [enable_table_input_mode=yes]
 )
-
 AM_CONDITIONAL(IBUS_BUILD_TABLE_INPUT_MODE, [test x"$enable_table_input_mode" = x"yes"])
+if test x"$enable_table_input_mode" = x"yes"; then
+       TABLE_INPUT_MODE="True"
+fi
+AC_SUBST(TABLE_INPUT_MODE)
+
+# --disable-libnotify
+AC_ARG_ENABLE(libnotify,
+    AS_HELP_STRING([--disable-libnotify],
+                   [Disable to link libnotify]),
+    [enable_libnotify=$enableval],
+    [enable_libnotify=yes]
+)
+AM_CONDITIONAL([ENABLE_LIBNOTIFY], [test x"$enable_libnotify" = x"yes"])
+if test x"$enable_libnotify" = x"yes"; then
+    PKG_CHECK_MODULES(LIBNOTIFY, [
+        libnotify >= 0.7
+    ])
+    enable_libnotify="yes"
+fi
 
 # OUTPUT files
 AC_CONFIG_FILES([ po/Makefile.in
@@ -227,7 +261,8 @@ ibus-libpinyin.spec
 lua/Makefile
 scripts/Makefile
 src/Makefile
-src/libpinyin.xml.in
+src/libpinyin.inputmethod.xml.in
+src/default.inputmethod.xml.in
 setup/Makefile
 setup/ibus-setup-libpinyin
 setup/config.py
@@ -244,6 +279,7 @@ Build options:
     Install prefix              $prefix
     Use boost                   $enable_boost
     Use opencc                  $enable_opencc
+    Enable libnotify            $enable_libnotify
     Use libpinyin               $enable_libpinyin
     Build lua extension         $enable_lua_extension
     Build cloud input mode      $enable_cloud_input_mode

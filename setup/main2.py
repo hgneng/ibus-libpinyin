@@ -5,7 +5,7 @@
 #
 # Copyright (c) 2008-2010 Peng Huang <shawn.p.huang@gmail.com>
 # Copyright (c) 2010 BYVoid <byvoid1@gmail.com>
-# Copyright (c) 2011-2012 Peng Wu <alexepico@gmail.com>
+# Copyright (c) 2011-2024 Peng Wu <alexepico@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import gettext
+from enginefile import resync_engine_file, save_layout
 
 import locale
 import os
@@ -153,6 +154,9 @@ class PreferencesDialog:
         self.__remember_every_input = self.__builder.get_object("RememberEveryInput")
         self.__sort_candidate_option = self.__builder.get_object("SortCandidateOption")
 
+        self.__keyboard_layout = self.__builder.get_object("KeyboardLayout")
+        self.__keyboard_layout_information = self.__builder.get_object("KeyboardLayoutInformation")
+
         # read values
         self.__init_chinese.set_active(self.__get_value("init-chinese"))
         self.__init_full.set_active(self.__get_value("init-full"))
@@ -166,6 +170,9 @@ class PreferencesDialog:
         self.__dynamic_adjust.set_active(self.__get_value("dynamic-adjust"))
         self.__remember_every_input.set_active(self.__get_value("remember-every-input"))
         self.__sort_candidate_option.set_active(self.__get_value("sort-candidate-option"))
+
+        self.__keyboard_layout.set_active_id(self.__get_value("keyboard-layout"))
+
         # connect signals
         self.__init_chinese.connect("toggled", self.__toggled_cb, "init-chinese")
         self.__init_full.connect("toggled", self.__toggled_cb, "init-full")
@@ -186,10 +193,16 @@ class PreferencesDialog:
         def __sort_candidate_option_changed_cb(widget):
             self.__set_value("sort-candidate-option", widget.get_active())
 
+        def __keyboard_layout_changed_cb(widget):
+            self.__set_value("keyboard-layout", widget.get_active_id())
+            save_layout()
+            self.__keyboard_layout_information.show()
+
         self.__display_style.connect("changed", __display_size_changed_cb)
         self.__lookup_table_orientation.connect("changed", __lookup_table_orientation_changed_cb)
         self.__lookup_table_page_size.connect("value-changed", __lookup_table_page_size_changed_cb)
         self.__sort_candidate_option.connect("changed", __sort_candidate_option_changed_cb)
+        self.__keyboard_layout.connect("changed", __keyboard_layout_changed_cb)
 
     def __init_pinyin(self):
         # page
@@ -283,18 +296,21 @@ class PreferencesDialog:
         self.__shift_select_candidate = self.__builder.get_object("ShiftSelectCandidate")
         self.__minus_equal_page = self.__builder.get_object("MinusEqualPage")
         self.__comma_period_page = self.__builder.get_object("CommaPeriodPage")
+        self.__square_bracket_page = self.__builder.get_object("SquareBracketPage")
         self.__auto_commit = self.__builder.get_object("AutoCommit")
 
         # read values
         self.__shift_select_candidate.set_active(self.__get_value("shift-select-candidate"))
         self.__minus_equal_page.set_active(self.__get_value("minus-equal-page"))
         self.__comma_period_page.set_active(self.__get_value("comma-period-page"))
+        self.__square_bracket_page.set_active(self.__get_value("square-bracket-page"))
         self.__auto_commit.set_active(self.__get_value("auto-commit"))
 
         # connect signals
         self.__shift_select_candidate.connect("toggled", self.__toggled_cb, "shift-select-candidate")
         self.__minus_equal_page.connect("toggled", self.__toggled_cb, "minus-equal-page")
         self.__comma_period_page.connect("toggled", self.__toggled_cb, "comma-period-page")
+        self.__square_bracket_page.connect("toggled", self.__toggled_cb, "square-bracket-page")
         self.__auto_commit.connect("toggled", self.__toggled_cb, "auto-commit")
 
     def __init_correct_pinyin(self):
@@ -392,8 +408,11 @@ class PreferencesDialog:
         self.__dict_treeview.show()
         self.__dict_treeview.set_dictionaries(self.__get_value("dictionaries"))
 
+        self.__dictionary_information = self.__builder.get_object("DictionaryInformation")
+
         def __notified_dicts_cb(self, param, dialog):
             dialog.__set_value("dictionaries", self.get_dictionaries())
+            dialog.__dictionary_information.show()
 
         # connect notify signal
         self.__dict_treeview.connect("notify::dictionaries", __notified_dicts_cb, self)
@@ -401,52 +420,83 @@ class PreferencesDialog:
     def __init_user_data(self):
         #page User Data
         self.__page_user_data.show()
+        self.__frame_input_modes = self.__builder.get_object("frameInputModes")
+        grid = self.__builder.get_object("gridInputModes")
+
+        path = os.path.join(pkgdatadir, 'user.lua')
+        if os.access(path, os.R_OK):
+            lua_visible = config.enable_lua_extension()
+        else:
+            lua_visible = False
+        table_mode_visible = config.enable_table_mode()
+        english_mode_visible = config.enable_english_input_mode()
+
+        input_mode_buttons = [
+#            obj_id,                 label,                  visible,              key,                    callback_func,           func_param;
+            ("lua_extension",        "Lua Extension",        lua_visible,          "lua-extension",        self.__lua_extension_cb, None),
+            ("table_mode",           "Table Mode",           table_mode_visible,   "table-input-mode",     self.__table_mode_cb,    None),
+            ("english_mode",         "English Mode",         english_mode_visible, "english-input-mode",   self.__english_mode_cb,  None),
+            ("english_candidate",    "English Candidate",    True,                 "english-candidate",    self.__toggled_cb,       "english-candidate"),
+            ("emoji_candidate",      "Emoji Candidate",      True,                 "emoji-candidate",      self.__toggled_cb,       "emoji-candidate"),
+            ("suggestion_candidate", "Suggestion Candidate", True,                 "suggestion-candidate", self.__toggled_cb,       "suggestion-candidate"),
+        ]
+
+        row = 0
+        col = 0
+        self.input_mode_buttons = {}
+        for obj_id, label, visible, key, callback_func, func_param in input_mode_buttons:
+            if not visible:
+                continue
+            else:
+                # Button initial:
+                button = Gtk.CheckButton(label=label)
+                button.set_name(obj_id)
+                button.set_visible(True)
+                button.set_can_focus(True)
+                button.set_receives_default(False)
+                button.set_halign(Gtk.Align.START)
+                grid.attach(button, col, row, 1, 1)
+                button.set_active(self.__get_value(key))
+                if func_param is None:
+                    button.connect("toggled", callback_func)
+                else:
+                    button.connect("toggled", callback_func, func_param)
+
+            # Move to the next grid position:
+            col += 1
+            if col > 1:
+                col = 0
+                row += 1
 
         self.__frame_lua_script = self.__builder.get_object("frameLuaScript")
-        path = os.path.join(pkgdatadir, 'user.lua')
-        if not os.access(path, os.R_OK):
+        if lua_visible:
+            self.__frame_lua_script.set_sensitive(self.__get_value("lua-extension"))
+            self.__edit_lua = self.__builder.get_object("EditLua")
+            self.__edit_lua.connect("clicked", self.__edit_lua_cb)
+        else:
             self.__frame_lua_script.hide()
-        self.__frame_user_table = self.__builder.get_object("frameUserTable")
-        self.__lua_extension = self.__builder.get_object("LuaExtension")
-        self.__table_mode = self.__builder.get_object("TableMode")
-        self.__english_mode = self.__builder.get_object("EnglishMode")
-        self.__emoji_candidate = self.__builder.get_object("EmojiCandidate")
-        self.__english_candidate = self.__builder.get_object("EnglishCandidate")
-        self.__suggestion_candidate = self.__builder.get_object("SuggestionCandidate")
-        self.__import_table = self.__builder.get_object("ImportTable")
-        self.__export_table = self.__builder.get_object("ExportTable")
-        self.__clear_user_table = self.__builder.get_object("ClearUserTable")
-        self.__edit_lua = self.__builder.get_object("EditLua")
-        self.__import_dictionary = self.__builder.get_object("ImportDictionary")
+
+        self.__frame_user_dictionary = self.__builder.get_object("frameUserDictionary")
         self.__export_dictionary = self.__builder.get_object("ExportDictionary")
-        self.__clear_user_data = self.__builder.get_object("ClearUserDictionary")
-        self.__clear_all_data = self.__builder.get_object("ClearAllDictionary")
-
-        # read values
-        self.__frame_lua_script.set_sensitive(self.__get_value("lua-extension"))
-        self.__frame_user_table.set_sensitive(self.__get_value("table-input-mode"))
-        self.__lua_extension.set_active(self.__get_value("lua-extension"))
-        self.__table_mode.set_active(self.__get_value("table-input-mode"))
-        self.__english_mode.set_active(self.__get_value("english-input-mode"))
-        self.__emoji_candidate.set_active(self.__get_value("emoji-candidate"))
-        self.__english_candidate.set_active(self.__get_value("english-candidate"))
-        self.__suggestion_candidate.set_active(self.__get_value("suggestion-candidate"))
-
-        # connect signals
-        self.__lua_extension.connect("toggled", self.__lua_extension_cb)
-        self.__table_mode.connect("toggled", self.__table_mode_cb)
-        self.__english_mode.connect("toggled", self.__english_mode_cb)
-        self.__emoji_candidate.connect("toggled", self.__toggled_cb, "emoji-candidate")
-        self.__english_candidate.connect("toggled", self.__toggled_cb, "english-candidate")
-        self.__suggestion_candidate.connect("toggled", self.__toggled_cb, "suggestion-candidate")
-        self.__edit_lua.connect("clicked", self.__edit_lua_cb)
-        self.__import_dictionary.connect("clicked", self.__import_dictionary_cb, "import-dictionary")
         self.__export_dictionary.connect("clicked", self.__export_dictionary_cb, "export-dictionary")
-        self.__clear_user_data.connect("clicked", self.__clear_user_data_cb, "user")
+        self.__import_dictionary = self.__builder.get_object("ImportDictionary")
+        self.__import_dictionary.connect("clicked", self.__import_dictionary_cb, "import-dictionary")
+        self.__clear_all_data = self.__builder.get_object("ClearAllDictionary")
         self.__clear_all_data.connect("clicked", self.__clear_user_data_cb, "all")
-        self.__import_table.connect("clicked", self.__import_table_cb, "import-custom-table")
-        self.__export_table.connect("clicked", self.__export_table_cb, "export-custom-table")
-        self.__clear_user_table.connect("clicked", self.__clear_user_table_cb, "clear-custom-table", "user")
+        self.__clear_user_data = self.__builder.get_object("ClearUserDictionary")
+        self.__clear_user_data.connect("clicked", self.__clear_user_data_cb, "user")
+
+        self.__frame_user_table = self.__builder.get_object("frameUserTable")
+        if not config.enable_table_mode():
+            self.__frame_user_table.hide()
+        else:
+            self.__frame_user_table.set_sensitive(self.__get_value("table-input-mode"))
+            self.__export_table = self.__builder.get_object("ExportTable")
+            self.__export_table.connect("clicked", self.__export_table_cb, "export-custom-table")
+            self.__import_table = self.__builder.get_object("ImportTable")
+            self.__import_table.connect("clicked", self.__import_table_cb, "import-custom-table")
+            self.__clear_user_table = self.__builder.get_object("ClearUserTable")
+            self.__clear_user_table.connect("clicked", self.__clear_user_table_cb, "clear-custom-table", "user")
 
     def __lua_extension_cb(self, widget):
         self.__set_value("lua-extension", widget.get_active())
@@ -477,6 +527,8 @@ class PreferencesDialog:
         dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
                            Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
 
+        dialog.set_current_folder(os.path.expanduser("~"))
+
         filter_text = Gtk.FileFilter()
         filter_text.set_name("Text files")
         filter_text.add_mime_type("text/plain")
@@ -498,6 +550,8 @@ class PreferencesDialog:
         dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
                            Gtk.STOCK_SAVE, Gtk.ResponseType.OK)
 
+        dialog.set_current_folder(os.path.expanduser("~"))
+
         dialog.set_do_overwrite_confirmation(True)
 
         filter_text = Gtk.FileFilter()
@@ -518,12 +572,14 @@ class PreferencesDialog:
         if filename:
             self.__set_value(name, "")
             self.__set_value(name, filename)
+            self.__set_value(name, "")
 
     def __export_dictionary_cb(self, widget, name):
         filename = self.__get_export_filename()
         if filename:
             self.__set_value(name, "")
             self.__set_value(name, filename)
+            self.__set_value(name, "")
 
     def __clear_user_data_cb(self, widget, name):
         self.__set_value("clear-user-data", name)
@@ -533,6 +589,7 @@ class PreferencesDialog:
         if filename:
             self.__set_value(name, "")
             self.__set_value(name, filename)
+            self.__set_value(name, "")
             self.__set_value("use-custom-table", True)
 
     def __export_table_cb(self, widget, name):
@@ -540,6 +597,7 @@ class PreferencesDialog:
         if filename:
             self.__set_value(name, "")
             self.__set_value(name, filename)
+            self.__set_value(name, "")
 
     def __clear_user_table_cb(self, widget, name, value):
         self.__set_value(name, value)
@@ -635,6 +693,10 @@ class PreferencesDialog:
         # page About
         self.__page_about.show()
 
+        self.__about_icon = self.__builder.get_object("AboutIcon")
+        icon_path = os.path.join(pkgdatadir, 'icons', 'ibus-pinyin.svg')
+        self.__about_icon.set_from_file(icon_path)
+
         self.__name_version = self.__builder.get_object("NameVersion")
         self.__name_version.set_markup(_("<big><b>Intelligent Pinyin %s</b></big>") % config.get_version())
 
@@ -675,12 +737,18 @@ class PreferencesDialog:
         return self.__dialog.run()
 
 def main():
-    name = "libpinyin"
+    command_name = "libpinyin"
     if len(sys.argv) == 2:
-        name = sys.argv[1]
-    if name not in ("libpinyin", "libbopomofo"):
-        name = "libpinyin"
-    PreferencesDialog(name).run()
+        command_name = sys.argv[1]
+
+    resync_engine_file()
+    if command_name == "resync-engine":
+        return
+
+    if command_name not in ("libpinyin", "libbopomofo"):
+        command_name = "libpinyin"
+
+    PreferencesDialog(command_name).run()
 
 
 if __name__ == "__main__":

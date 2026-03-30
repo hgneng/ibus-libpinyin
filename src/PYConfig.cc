@@ -48,6 +48,7 @@ Config::initDefaultValues (void)
     m_shift_select_candidate = FALSE;
     m_minus_equal_page = TRUE;
     m_comma_period_page = FALSE;
+    m_square_bracket_page = FALSE;
     m_auto_commit = FALSE;
 
     m_double_pinyin = FALSE;
@@ -79,12 +80,15 @@ Config::initDefaultValues (void)
     m_english_candidate = TRUE;
     m_suggestion_candidate = FALSE;
 
+    m_export_user_phrase = TRUE;
+    m_export_bigram_phrase = TRUE;
+
     m_network_dictionary_start_timestamp = 0;
     m_network_dictionary_end_timestamp = 0;
 
     m_enable_cloud_input = FALSE;
     m_cloud_candidates_number = 1;
-    m_cloud_input_source = CLOUD_INPUT_SOURCE_BAIDU;
+    m_cloud_input_source = CLOUD_INPUT_SOURCE_GOOGLE_CN;
     m_cloud_request_delay_time = 600;
 }
 

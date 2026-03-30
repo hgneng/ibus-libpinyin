@@ -75,6 +75,12 @@ PinyinEngine::PinyinEngine (IBusEngine *engine)
 #endif
     }
 
+#ifdef IBUS_BUILD_LUA_EXTENSION
+    m_props.setLuaPlugin (m_lua_plugin);
+    if (PinyinConfig::instance ().luaExtension ())
+        m_props.appendLuaConverter ();
+#endif
+
     m_editors[MODE_PUNCT].reset
         (new PunctEditor (m_props, PinyinConfig::instance ()));
     m_editors[MODE_RAW].reset
@@ -200,7 +206,8 @@ PinyinEngine::processAccelKeyEvent (guint keyval, guint keycode,
              * we will let client applications to handle release key event */
             return FALSE;
         } else {
-            return TRUE;
+            /* Always return FALSE for the IBUS_RELEASE_MASK. */
+            return FALSE;
         }
     }
 
@@ -359,8 +366,11 @@ PinyinEngine::processKeyEvent (guint keyval, guint keycode, guint modifiers)
                 if ((IBUS_A <= keyval && keyval<= IBUS_Z) &&
                     PinyinConfig::instance ().englishInputMode () &&
                     !PinyinConfig::instance ().doublePinyin ()) {
-                    m_input_mode = MODE_ENGLISH;
-                    m_editors[m_input_mode]->setText ("v", 1);
+                    // for Caps Lock
+                    if (!(modifiers & IBUS_LOCK_MASK)) {
+                        m_input_mode = MODE_ENGLISH;
+                        m_editors[m_input_mode]->setText ("v", 1);
+                    }
                 }
 #endif
 
@@ -370,6 +380,12 @@ PinyinEngine::processKeyEvent (guint keyval, guint keycode, guint modifiers)
                 if (keyval <= std::numeric_limits<char>::max() &&
                     g_unichar_ispunct (keyval) &&
                     (EnglishSymbols.find(keyval) != std::string::npos ||
+                     /* For full pinyin, "'" is used. */
+                     (PinyinConfig::instance ().doublePinyin () &&
+                      IBUS_apostrophe == keyval) ||
+                     /* Use square brackets to flip page */
+                     (!PinyinConfig::instance ().squareBracketPage () &&
+                      (IBUS_bracketleft == keyval || IBUS_bracketright == keyval)) ||
                      /* For double pinyin, ";" is used. */
                      (!PinyinConfig::instance ().doublePinyin () &&
                       IBUS_semicolon == keyval)) &&
@@ -422,6 +438,9 @@ PinyinEngine::processKeyEvent (guint keyval, guint keycode, guint modifiers)
         if (G_UNLIKELY (retval &&
                         m_input_mode != MODE_INIT &&
                         m_editors[m_input_mode]->text ().empty ()))
+            m_input_mode = MODE_INIT;
+
+        if (G_UNLIKELY (!retval && m_input_mode == MODE_SUGGESTION))
             m_input_mode = MODE_INIT;
     }
 

@@ -44,6 +44,9 @@ EnglishEditor::~EnglishEditor ()
 gboolean
 EnglishEditor::processKeyEvent (guint keyval, guint keycode, guint modifiers)
 {
+    if (modifiers & IBUS_MOD4_MASK)
+        return FALSE;
+
     //IBUS_SHIFT_MASK is removed.
     modifiers &= (IBUS_CONTROL_MASK |
                   IBUS_MOD1_MASK |
@@ -94,6 +97,12 @@ EnglishEditor::processKeyEvent (guint keyval, guint keycode, guint modifiers)
             m_text.insert (m_cursor, keyval);
             m_cursor ++;
         }
+
+        if (!m_config.squareBracketPage () &&
+            (IBUS_bracketleft == keyval || IBUS_bracketright == keyval)) {
+            m_text.insert (m_cursor, keyval);
+            m_cursor ++;
+        }
     }
 
     /* Deal other staff with updateStateFromInput (). */
@@ -137,6 +146,12 @@ EnglishEditor::processPageKey (guint keyval)
             return TRUE;
         }
         break;
+    case IBUS_bracketleft:
+        if (m_config.squareBracketPage ()) {
+            pageUp ();
+            return TRUE;
+        }
+        break;
     case IBUS_period:
         if (m_config.commaPeriodPage ()) {
             pageDown ();
@@ -149,6 +164,13 @@ EnglishEditor::processPageKey (guint keyval)
             return TRUE;
         }
         break;
+    case IBUS_bracketright:
+        if (m_config.squareBracketPage ()) {
+            pageDown ();
+            return TRUE;
+        }
+        break;
+
     case IBUS_Up:
     case IBUS_KP_Up:
         cursorUp ();

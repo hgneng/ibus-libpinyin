@@ -9,6 +9,10 @@
       <default>false</default>
       <summary>Use comma and period to flip page</summary>
     </key>
+    <key name="square-bracket-page" type="b">
+      <default>false</default>
+      <summary>Use square brackets to flip page</summary>
+    </key>
     <key name="correct-pinyin" type="b">
       <default>true</default>
       <summary>Enable correct pinyin</summary>
@@ -194,7 +198,7 @@
       <summary>Use Lua Converter</summary>
     </key>
     <key name="opencc-config" type="s">
-      <default>'s2t.json'</default>
+      <default>'s2tw.json'</default>
       <summary>The config file which should be used by OpenCC for traditional input. Please consult the OpenCC documentation for more information</summary>
     </key>
     <key name="emoji-candidate" type="b">
@@ -250,7 +254,7 @@
       <summary>Enable Cloud Input</summary>
     </key>
     <key name="cloud-input-source" type="i">
-      <default>0</default>
+      <default>1</default>
       <summary>Cloud Input Source</summary>
     </key>
     <key name="cloud-candidates-number" type="i">
@@ -261,6 +265,18 @@
       <range min="200" max="2000"/>
       <default>600</default>
       <summary>Sending Cloud request with delay</summary>
+    </key>
+    <key name="export-user-phrase" type="b">
+      <default>true</default>
+      <summary>Export user phrases</summary>
+    </key>
+    <key name="export-bigram-phrase" type="b">
+      <default>true</default>
+      <summary>Export bigram phrases</summary>
+    </key>
+    <key name="keyboard-layout" type="s">
+      <default>'default'</default>
+      <summary>The keyboard layout used with ibus-libpinyin</summary>
     </key>
   </schema>
   <schema path="/com/github/libpinyin/ibus-libpinyin/libbopomofo/" id="com.github.libpinyin.ibus-libpinyin.libbopomofo">
@@ -401,7 +417,7 @@
       <summary>Sort candidate option</summary>
     </key>
     <key name="opencc-config" type="s">
-      <default>'s2t.json'</default>
+      <default>'s2tw.json'</default>
       <summary>The config file which should be used by OpenCC for traditional input. Please consult the OpenCC documentation for more information</summary>
     </key>
     <key name="emoji-candidate" type="b">
@@ -440,6 +456,10 @@
       <range min="200" max="2000"/>
       <default>600</default>
       <summary>Sending Cloud request with delay</summary>
+    </key>
+    <key name="keyboard-layout" type="s">
+      <default>'default'</default>
+      <summary>The keyboard layout used with ibus-libpinyin</summary>
     </key>
   </schema>
 </schemalist>

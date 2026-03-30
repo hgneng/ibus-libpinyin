@@ -62,6 +62,9 @@ SuggestionEditor::setLuaPlugin (IBusEnginePlugin *plugin)
 gboolean
 SuggestionEditor::processKeyEvent (guint keyval, guint keycode, guint modifiers)
 {
+    if (modifiers & IBUS_MOD4_MASK)
+        return FALSE;
+
     //IBUS_SHIFT_MASK is removed.
     modifiers &= (IBUS_CONTROL_MASK |
                   IBUS_MOD1_MASK |
@@ -110,6 +113,12 @@ SuggestionEditor::processPageKey (guint keyval)
             return TRUE;
         }
         break;
+    case IBUS_bracketleft:
+        if (m_config.squareBracketPage ()) {
+            pageUp ();
+            return TRUE;
+        }
+        break;
     case IBUS_period:
         if (m_config.commaPeriodPage ()) {
             pageDown ();
@@ -118,6 +127,12 @@ SuggestionEditor::processPageKey (guint keyval)
         break;
     case IBUS_equal:
         if (m_config.minusEqualPage ()) {
+            pageDown ();
+            return TRUE;
+        }
+        break;
+    case IBUS_bracketright:
+        if (m_config.squareBracketPage ()) {
             pageDown ();
             return TRUE;
         }
@@ -259,7 +274,7 @@ SuggestionEditor::cursorDown (void)
 void
 SuggestionEditor::update (void)
 {
-    pinyin_guess_predicted_candidates (m_instance, m_text);
+    pinyin_guess_predicted_candidates_with_punctuations (m_instance, m_text);
 
     updateLookupTable ();
     updatePreeditText ();
@@ -344,6 +359,7 @@ SuggestionEditor::selectCandidateInternal (EnhancedCandidate & candidate)
     switch (candidate.m_candidate_type) {
     case CANDIDATE_PREDICTED_BIGRAM:
     case CANDIDATE_PREDICTED_PREFIX:
+    case CANDIDATE_PREDICTED_PUNCTUATION:
         return m_suggestion_candidates.selectCandidate (candidate);
 
     case CANDIDATE_TRADITIONAL_CHINESE:

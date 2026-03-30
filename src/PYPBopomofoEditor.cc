@@ -73,6 +73,8 @@ BopomofoEditor::insert (gint ch)
         return TRUE;
 
     m_text.insert (m_cursor++, ch);
+    m_lookup_cursor = 0;
+
     updatePinyin ();
     update ();
 
@@ -191,6 +193,9 @@ gboolean
 BopomofoEditor::processKeyEvent (guint keyval, guint keycode,
                                           guint modifiers)
 {
+    if (modifiers & IBUS_MOD4_MASK)
+        return FALSE;
+
     modifiers &= (IBUS_SHIFT_MASK |
                   IBUS_CONTROL_MASK |
                   IBUS_MOD1_MASK |

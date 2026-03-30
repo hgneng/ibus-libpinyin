@@ -79,6 +79,7 @@ ibus_engine_libpinyin_h_sources = \
 	PYPSuggestionCandidates.h \
 	PYPEmojiTable.h \
 	PYPEmojiCandidates.h \
+	PYXMLUtil.h \
 	$(NULL)
 
 ibus_engine_libpinyin_c_sources += \
@@ -96,6 +97,7 @@ ibus_engine_libpinyin_c_sources += \
 	PYPSuggestionEditor.cc \
 	PYPSuggestionCandidates.cc \
 	PYPEmojiCandidates.cc \
+	PYXMLUtil.cc \
 	chinesedict.cc \
 	ibusspeech.cc \
 	$(NULL)
@@ -207,14 +209,25 @@ ibus_engine_libpinyin_LDADD += \
 endif
 
 if IBUS_BUILD_ENGLISH_INPUT_MODE
-   ibus_engine_libpinyin_CXXFLAGS += \
+ibus_engine_libpinyin_CXXFLAGS += \
 	-DIBUS_BUILD_ENGLISH_INPUT_MODE \
 	$(NULL)
 endif
 
 if IBUS_BUILD_TABLE_INPUT_MODE
-   ibus_engine_libpinyin_CXXFLAGS += \
+ibus_engine_libpinyin_CXXFLAGS += \
 	-DIBUS_BUILD_TABLE_INPUT_MODE \
+	$(NULL)
+endif
+
+if ENABLE_LIBNOTIFY
+ibus_engine_libpinyin_CXXFLAGS += \
+	@LIBNOTIFY_CFLAGS@ \
+	-DENABLE_LIBNOTIFY \
+	$(NULL)
+
+ibus_engine_libpinyin_LDADD += \
+	@LIBNOTIFY_LIBS@ \
 	$(NULL)
 endif
 
@@ -228,12 +241,19 @@ component_DATA = \
 	$(NULL)
 componentdir = @datadir@/ibus/component
 
+engine_DATA = \
+	default.xml \
+	$(NULL)
+enginedir = ${pkgdatadir}
+
 EXTRA_DIST = \
-	libpinyin.xml.in \
+	libpinyin.inputmethod.xml.in \
+	default.inputmethod.xml.in \
 	$(NULL)
 
 CLEANFILES = \
 	libpinyin.xml \
+	default.xml \
 	$(NULL)
 
 PYPunctTable.h:
@@ -251,14 +271,10 @@ update-simptrad-table:
 	$(MAKE) -C $(top_srcdir)/scripts ZhConversion.py
 	$(MAKE) PYSimpTradConverterTable.h
 
-libpinyin.xml: libpinyin.xml.in
-	$(AM_V_GEN) \
-	( \
-		libexecdir=${libexecdir}; \
-		pkgdatadir=${pkgdatadir}; \
-		s=`cat $<`; \
-		eval "echo \"$${s}\""; \
-	) > $@
+%.xml: %.inputmethod.xml.in
+	sed -e "s|\@LIBEXECDIR\@|$(libexecdir)|g" \
+	    -e "s|\@PKGDATADIR\@|$(pkgdatadir)|g" \
+	$< > $@
 
 test: ibus-engine-libpinyin
 	$(ENV) \

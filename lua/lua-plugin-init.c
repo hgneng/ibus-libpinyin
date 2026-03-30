@@ -19,6 +19,10 @@
  */
 
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include <stdio.h>
 #include <string.h>
 #include <glib.h>
@@ -87,8 +91,7 @@ static int ime_get_last_commit(lua_State* L){
 }
 
 static int ime_get_version(lua_State* L){
-  /* TODO: replace this with C macros. */
-  lua_pushliteral(L, "ibus-libpinyin 1.4.0");
+  lua_pushliteral(L, PACKAGE_STRING);
   return 1;
 }
 
@@ -99,7 +102,7 @@ static int ime_int_to_hex_string(lua_State* L){
     luaL_Buffer buf;
     luaL_buffinit(L, &buf);
 
-    gchar * str = g_strdup_printf("%0*x", width, val);
+    gchar * str = g_strdup_printf("%0*x", (int)width, (int)val);
     luaL_addstring(&buf, str);
     g_free(str);
 
@@ -131,7 +134,7 @@ static int ime_join_string(lua_State* L){
   for ( i = 1; i < vec_len; ++i){
     lua_pushinteger(L, i);
     lua_gettable(L, 1);
-    str = luaL_checklstring(L, 3, NULL);
+    str = luaL_checklstring(L, -1, NULL);
     luaL_addstring(&buf, str);
     lua_pop(L, 1);
     luaL_addstring(&buf, sep);
@@ -140,7 +143,7 @@ static int ime_join_string(lua_State* L){
   /* add tail of string list */
   lua_pushinteger(L, i);
   lua_gettable(L, 1);
-  str = luaL_checklstring(L, 3, NULL);
+  str = luaL_checklstring(L, -1, NULL);
   luaL_addstring(&buf, str);
   lua_pop(L, 1);
   /* remove the args. */
@@ -409,7 +412,7 @@ static int ime_utf8_to_utf16(lua_State* L){
     gunichar2 * str = g_utf8_to_utf16(s, l, NULL, &written, NULL);
 
     /* not includes trailing-zero */
-    luaL_addlstring(&buf, str, written * sizeof(gunichar2));
+    luaL_addlstring(&buf, (const char *)str, written * sizeof(gunichar2));
     luaL_pushresult(&buf);
 
     g_free(str);
@@ -419,7 +422,7 @@ static int ime_utf8_to_utf16(lua_State* L){
 
 static int ime_utf16_to_utf8(lua_State* L){
     size_t l;
-    const gunichar2 * s = luaL_checklstring(L, 1, &l);
+    const gunichar2 * s = (const gunichar2 *)luaL_checklstring(L, 1, &l);
 
     luaL_Buffer buf;
     luaL_buffinit(L, &buf);
