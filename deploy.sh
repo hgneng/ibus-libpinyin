@@ -6,7 +6,7 @@ sudo apt install -y gobject-introspection
 
 ./autogen.sh
 ./configure  --prefix=/usr --libexecdir=/usr/lib/ibus
-make
+make -j$(nproc)
 sudo make install
 im-config -n ibus
 ibus-daemon -drx
